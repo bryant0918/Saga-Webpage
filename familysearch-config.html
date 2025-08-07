@@ -256,6 +256,7 @@
                         startingPersonInput.value = currentPerson.id;
                         startingPersonInput.style.backgroundColor = '#ecfdf5';
                         startingPersonInput.style.borderColor = '#10b981';
+                        startingPersonInput.style.color = '#047857';
                     }
 
                     // Auto-fill the Family Name field with last name
@@ -263,6 +264,16 @@
                         familyNameInput.value = nameParts[nameParts.length - 1]; // Last name
                         familyNameInput.style.backgroundColor = '#ecfdf5';
                         familyNameInput.style.borderColor = '#10b981';
+                        familyNameInput.style.color = '#047857';
+                    }
+
+                    // Auto-fill the contact name field with full name
+                    const contactNameInput = document.getElementById('contactName');
+                    if (contactNameInput) {
+                        contactNameInput.value = currentPerson.name;
+                        contactNameInput.style.backgroundColor = '#ecfdf5';
+                        contactNameInput.style.borderColor = '#10b981';
+                        contactNameInput.style.color = '#047857';
                     }
                 } else {
                     // Show fallback message if we couldn't get the person info
