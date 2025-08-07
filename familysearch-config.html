@@ -1,298 +1,586 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" data-bs-theme="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Family Saga - FamilySearch Configuration</title>
-    
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Google Fonts - Scandinavian Typography -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
-    
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="custom.css">
-    
-    <meta name="description" content="Configure your FamilySearch family tree to create your luxury family chart.">
-    <link rel="icon" type="image/png" href="assets/saga.png">
-</head>
-<body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark shadow-sm" style="background-color: var(--primary-black);">
-        <div class="container">
-            <a class="navbar-brand fw-bold d-flex align-items-center" href="index.html" style="color: var(--gold-primary);">
-                <img src="assets/saga.png" alt="Family Saga" style="height: 40px; width: auto; margin-right: 10px; border-radius: 50%;">
-                Family Saga
-            </a>
-            <div class="ms-auto">
-                <a href="index.html" class="btn btn-outline-light btn-sm">
-                    <i class="fas fa-arrow-left me-2"></i>Back to Home
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Family Saga - FamilySearch Configuration</title>
+
+        <!-- Bootstrap CSS -->
+        <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+        />
+
+        <!-- Font Awesome Icons -->
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
+
+        <!-- Google Fonts - Scandinavian Typography -->
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400&display=swap"
+            rel="stylesheet"
+        />
+
+        <!-- Custom CSS -->
+        <link rel="stylesheet" href="custom.css" />
+
+        <meta
+            name="description"
+            content="Configure your FamilySearch family tree to create your luxury family chart."
+        />
+        <link rel="icon" type="image/png" href="assets/saga.png" />
+    </head>
+    <body>
+        <!-- Navigation -->
+        <nav
+            class="navbar navbar-expand-lg navbar-dark shadow-sm"
+            style="background-color: var(--primary-black)"
+        >
+            <div class="container">
+                <a
+                    class="navbar-brand fw-bold d-flex align-items-center"
+                    href="index.html"
+                    style="color: var(--gold-primary)"
+                >
+                    <img
+                        src="assets/saga.png"
+                        alt="Family Saga"
+                        style="
+                            height: 40px;
+                            width: auto;
+                            margin-right: 10px;
+                            border-radius: 50%;
+                        "
+                    />
+                    Family Saga
                 </a>
+                <div class="ms-auto">
+                    <a href="index.html" class="btn btn-outline-light btn-sm">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Home
+                    </a>
+                </div>
             </div>
-        </div>
-    </nav>
+        </nav>
 
-    <div class="container py-5">
-        <div class="row justify-content-center">
-            <div class="col-lg-8">
-                <div class="alert alert-success mb-4" style="background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%); border-color: var(--gold-primary); color: #065f46;">
-                    <div class="text-center">
-                        <div class="d-flex align-items-center justify-content-center mb-3">
-                            <img src="assets/fs_logo.png" alt="FamilySearch Logo" style="height: 50px; width: auto; margin-right: 15px; filter: saturate(150%) invert(1%) sepia(10%) brightness(100%) contrast(105%);">
-                            <i class="fas fa-check-circle fa-3x" style="color: var(--gold-primary);"></i>
-                        </div>
-                        <h2 class="mb-3" style="color: var(--gold-primary);">Successfully Connected to FamilySearch!</h2>
-                        <div id="currentPersonInfo" class="mb-3">
-                            <p style="color: #047857;">Loading your account information...</p>
-                        </div>
-                        <p style="color: #047857; margin: 0;">You're now authenticated and ready to generate your luxury family tree.</p>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="card-body p-5">
-                        <h2 class="text-center mb-4" style="color: var(--gold-primary);">Configure Your Family Tree</h2>
-                        
-                        <form id="familySearchForm">
-                            <h3 class="mb-4" style="color: var(--gold-primary); font-size: 1.3rem;">Your Contact Info</h3>
-                            
-                            <div class="mb-3">
-                                <label for="contactName" class="form-label">
-                                    Your Name <span style="color: #dc3545;">*</span>
-                                </label>
-                                <input type="text" class="form-control" id="contactName" name="contact_name" placeholder="Enter your full name" required>
+        <div class="container py-5">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div
+                        class="alert alert-success mb-4"
+                        style="
+                            background: linear-gradient(
+                                135deg,
+                                #ecfdf5 0%,
+                                #f0fdf4 100%
+                            );
+                            border-color: var(--gold-primary);
+                            color: #065f46;
+                        "
+                    >
+                        <div class="text-center">
+                            <div
+                                class="d-flex align-items-center justify-content-center mb-3"
+                            >
+                                <img
+                                    src="assets/fs_logo.png"
+                                    alt="FamilySearch Logo"
+                                    style="
+                                        height: 50px;
+                                        width: auto;
+                                        margin-right: 15px;
+                                        filter: saturate(150%) invert(1%)
+                                            sepia(10%) brightness(100%)
+                                            contrast(105%);
+                                    "
+                                />
+                                <i
+                                    class="fas fa-check-circle fa-3x"
+                                    style="color: var(--gold-primary)"
+                                ></i>
                             </div>
-
-                            <div class="mb-3">
-                                <label for="contactEmail" class="form-label">
-                                    Your Email <span style="color: #dc3545;">*</span>
-                                </label>
-                                <input type="email" class="form-control" id="contactEmail" name="contact_email" placeholder="Enter your email address" required>
+                            <h2 class="mb-3" style="color: var(--gold-primary)">
+                                Successfully Connected to FamilySearch!
+                            </h2>
+                            <div id="currentPersonInfo" class="mb-3">
+                                <p style="color: #047857">
+                                    Loading your account information...
+                                </p>
                             </div>
-
-                            <div class="mb-4">
-                                <label for="contactPhone" class="form-label">Your Phone Number</label>
-                                <input type="tel" class="form-control" id="contactPhone" name="contact_phone" placeholder="Enter your phone number (optional)">
-                            </div>
-
-                            <h3 class="mb-4" style="color: var(--gold-primary); font-size: 1.3rem;">Tree Configuration</h3>
-
-                            <div class="mb-3">
-                                <label for="startingPerson" class="form-label">
-                                    Starting Person ID <span style="color: #dc3545;">*</span>
-                                </label>
-                                <input type="text" class="form-control" id="startingPerson" name="starting_person" placeholder="Enter FamilySearch Person ID (e.g., KWQS-BYD)" required>
-                                <div class="form-text">Enter the FamilySearch Person ID to use as the root of your family tree. You can find this in the URL when viewing a person on FamilySearch.</div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="familyName" class="form-label">
-                                    Family Name <span style="color: #dc3545;">*</span>
-                                </label>
-                                <input type="text" class="form-control" id="familyName" name="title" placeholder="Enter your family name" required>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="generations" class="form-label">Number of Generations</label>
-                                <select class="form-select" id="generations" name="generations">
-                                    <option value="5" selected>5 Generations (Default)</option>
-                                    <option value="4">4 Generations</option>
-                                </select>
-                                <div class="form-text">Choose how many generations to include in your family tree</div>
-                            </div>
-
-                            <div class="mb-4">
-                                <label for="treeType" class="form-label">Tree Type</label>
-                                <select class="form-select" id="treeType" name="tree_type">
-                                    <option value="ancestor" selected>Ancestor Tree (Default)</option>
-                                    <option value="descendant">Descendant Tree</option>
-                                </select>
-                            </div>
-
-                            <div class="text-center">
-                                <button type="submit" class="btn btn-nordic btn-lg">
-                                    <i class="fas fa-paper-plane me-2"></i>
-                                    Generate Family Tree
-                                </button>
-                            </div>
-                        </form>
-
-                        <div id="loadingIndicator" class="text-center py-4 d-none">
-                            <div class="spinner-border text-warning mb-3" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                            <p style="color: var(--text-gray);">Submitting your family tree request... Please wait.</p>
-                        </div>
-
-                        <div id="errorMessage" class="alert alert-danger d-none mt-4"></div>
-                        
-                        <div id="successMessage" class="alert alert-success d-none mt-4">
-                            <div class="text-center">
-                                <i class="fas fa-check-circle fa-2x mb-3" style="color: var(--gold-primary);"></i>
-                                <h4>✅ Request Submitted Successfully!</h4>
-                                <p class="mb-0">Thanks for submitting a family tree request. We will contact you shortly.</p>
-                            </div>
+                            <p style="color: #047857; margin: 0">
+                                You're now authenticated and ready to build your
+                                custom family tree.
+                            </p>
                         </div>
                     </div>
-                </div>
 
-                <!-- How to Find Person IDs -->
-                <div class="card mt-4">
-                    <div class="card-body p-4">
-                        <h4 class="mb-3" style="color: var(--gold-primary);">
-                            <i class="fas fa-question-circle me-2"></i>How to Find Person IDs
-                        </h4>
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <div class="d-flex align-items-start">
-                                    <div class="flex-shrink-0">
-                                        <div class="rounded-circle d-flex align-items-center justify-content-center" 
-                                             style="width: 40px; height: 40px; background-color: var(--gold-primary); color: var(--deep-black); font-weight: 600;">
-                                            1
+                    <div class="card">
+                        <div class="card-body p-5">
+                            <h2
+                                class="text-center mb-4"
+                                style="color: var(--gold-primary)"
+                            >
+                                Configure Your Family Tree
+                            </h2>
+
+                            <form id="familySearchForm">
+                                <h3
+                                    class="mb-4"
+                                    style="
+                                        color: var(--gold-primary);
+                                        font-size: 1.3rem;
+                                    "
+                                >
+                                    Your Contact Info
+                                </h3>
+
+                                <div class="mb-3">
+                                    <label for="contactName" class="form-label">
+                                        Your Name
+                                        <span style="color: #dc3545">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="contactName"
+                                        name="contact_name"
+                                        placeholder="Enter your full name"
+                                        required
+                                    />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label
+                                        for="contactEmail"
+                                        class="form-label"
+                                    >
+                                        Your Email
+                                        <span style="color: #dc3545">*</span>
+                                    </label>
+                                    <input
+                                        type="email"
+                                        class="form-control"
+                                        id="contactEmail"
+                                        name="contact_email"
+                                        placeholder="Enter your email address"
+                                        required
+                                    />
+                                </div>
+
+                                <div class="mb-4">
+                                    <label for="contactPhone" class="form-label"
+                                        >Your Phone Number</label
+                                    >
+                                    <input
+                                        type="tel"
+                                        class="form-control"
+                                        id="contactPhone"
+                                        name="contact_phone"
+                                        placeholder="Enter your phone number (optional)"
+                                    />
+                                </div>
+
+                                <h3
+                                    class="mb-4"
+                                    style="
+                                        color: var(--gold-primary);
+                                        font-size: 1.3rem;
+                                    "
+                                >
+                                    Tree Configuration
+                                </h3>
+
+                                <div class="mb-3">
+                                    <label
+                                        for="startingPerson"
+                                        class="form-label"
+                                    >
+                                        Starting Person ID
+                                        <span style="color: #dc3545">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="startingPerson"
+                                        name="starting_person"
+                                        placeholder="Enter FamilySearch Person ID (e.g., KWQS-BYD)"
+                                        required
+                                    />
+                                    <div class="form-text">
+                                        Enter the FamilySearch Person ID to use
+                                        as the root of your family tree. You can
+                                        find this in the URL when viewing a
+                                        person on FamilySearch.
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="familyName" class="form-label">
+                                        Family Name
+                                        <span style="color: #dc3545">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="familyName"
+                                        name="title"
+                                        placeholder="Enter your family name"
+                                        required
+                                    />
+                                </div>
+
+                                <div class="mb-4">
+                                    <label for="treeType" class="form-label"
+                                        >Tree Type</label
+                                    >
+                                    <select
+                                        class="form-select"
+                                        id="treeType"
+                                        name="tree_type"
+                                    >
+                                        <option value="ancestor" selected>
+                                            Ancestor Tree (Default)
+                                        </option>
+                                        <option value="descendant">
+                                            Descendant Tree
+                                        </option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="generations" class="form-label"
+                                        >Number of Generations</label
+                                    >
+                                    <select
+                                        class="form-select"
+                                        id="generations"
+                                        name="generations"
+                                    >
+                                        <option value="5" selected>
+                                            5 Generations
+                                        </option>
+                                        <option value="4">4 Generations</option>
+                                        <option value="3">3 Generations</option>
+                                    </select>
+                                    <div class="form-text">
+                                        Choose how many generations to include
+                                        in your family tree
+                                    </div>
+                                </div>
+
+                                <div class="text-center">
+                                    <button
+                                        type="submit"
+                                        class="btn btn-nordic btn-lg"
+                                    >
+                                        <i class="fas fa-paper-plane me-2"></i>
+                                        Submit Tree Request
+                                    </button>
+                                </div>
+                            </form>
+
+                            <div
+                                id="loadingIndicator"
+                                class="text-center py-4 d-none"
+                            >
+                                <div
+                                    class="spinner-border text-warning mb-3"
+                                    role="status"
+                                >
+                                    <span class="visually-hidden"
+                                        >Loading...</span
+                                    >
+                                </div>
+                                <p style="color: var(--text-gray)">
+                                    Submitting your family tree request...
+                                    Please wait.
+                                </p>
+                            </div>
+
+                            <div
+                                id="errorMessage"
+                                class="alert alert-danger d-none mt-4"
+                            ></div>
+
+                            <div
+                                id="successMessage"
+                                class="alert alert-success d-none mt-4"
+                            >
+                                <div class="text-center">
+                                    <i
+                                        class="fas fa-check-circle fa-2x mb-3"
+                                        style="color: var(--gold-primary)"
+                                    ></i>
+                                    <h4>✅ Request Submitted Successfully!</h4>
+                                    <p class="mb-0">
+                                        Thanks for submitting a family tree
+                                        request. We will contact you shortly.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- How to Find Person IDs -->
+                    <div class="card mt-4">
+                        <div class="card-body p-4">
+                            <h4 class="mb-3" style="color: var(--gold-primary)">
+                                <i class="fas fa-question-circle me-2"></i>How
+                                to Find Person IDs
+                            </h4>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <div class="d-flex align-items-start">
+                                        <div class="flex-shrink-0">
+                                            <div
+                                                class="rounded-circle d-flex align-items-center justify-content-center"
+                                                style="
+                                                    width: 40px;
+                                                    height: 40px;
+                                                    background-color: var(
+                                                        --gold-primary
+                                                    );
+                                                    color: var(--deep-black);
+                                                    font-weight: 600;
+                                                "
+                                            >
+                                                1
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <h6
+                                                style="
+                                                    color: var(--gold-primary);
+                                                "
+                                            >
+                                                Go to FamilySearch.org
+                                            </h6>
+                                            <p
+                                                class="mb-0"
+                                                style="
+                                                    color: var(--text-gray);
+                                                    font-size: 0.9rem;
+                                                "
+                                            >
+                                                Navigate to the person you want
+                                                to use as the starting point
+                                            </p>
                                         </div>
                                     </div>
-                                    <div class="flex-grow-1 ms-3">
-                                        <h6 style="color: var(--gold-primary);">Go to FamilySearch.org</h6>
-                                        <p class="mb-0" style="color: var(--text-gray); font-size: 0.9rem;">Navigate to the person you want to use as the starting point</p>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="d-flex align-items-start">
+                                        <div class="flex-shrink-0">
+                                            <div
+                                                class="rounded-circle d-flex align-items-center justify-content-center"
+                                                style="
+                                                    width: 40px;
+                                                    height: 40px;
+                                                    background-color: var(
+                                                        --gold-primary
+                                                    );
+                                                    color: var(--deep-black);
+                                                    font-weight: 600;
+                                                "
+                                            >
+                                                2
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <h6
+                                                style="
+                                                    color: var(--gold-primary);
+                                                "
+                                            >
+                                                Look at the URL
+                                            </h6>
+                                            <p
+                                                class="mb-0"
+                                                style="
+                                                    color: var(--text-gray);
+                                                    font-size: 0.9rem;
+                                                "
+                                            >
+                                                The Person ID is at the end of
+                                                the URL (e.g.,
+                                                /tree/person/details/KWQS-BYD)
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="d-flex align-items-start">
+                                        <div class="flex-shrink-0">
+                                            <div
+                                                class="rounded-circle d-flex align-items-center justify-content-center"
+                                                style="
+                                                    width: 40px;
+                                                    height: 40px;
+                                                    background-color: var(
+                                                        --gold-primary
+                                                    );
+                                                    color: var(--deep-black);
+                                                    font-weight: 600;
+                                                "
+                                            >
+                                                3
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <h6
+                                                style="
+                                                    color: var(--gold-primary);
+                                                "
+                                            >
+                                                Copy the ID
+                                            </h6>
+                                            <p
+                                                class="mb-0"
+                                                style="
+                                                    color: var(--text-gray);
+                                                    font-size: 0.9rem;
+                                                "
+                                            >
+                                                Copy just the ID part (e.g.,
+                                                KWQS-BYD) and paste it above
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-4 mb-3">
-                                <div class="d-flex align-items-start">
-                                    <div class="flex-shrink-0">
-                                        <div class="rounded-circle d-flex align-items-center justify-content-center" 
-                                             style="width: 40px; height: 40px; background-color: var(--gold-primary); color: var(--deep-black); font-weight: 600;">
-                                            2
-                                        </div>
-                                    </div>
-                                    <div class="flex-grow-1 ms-3">
-                                        <h6 style="color: var(--gold-primary);">Look at the URL</h6>
-                                        <p class="mb-0" style="color: var(--text-gray); font-size: 0.9rem;">The Person ID is at the end of the URL (e.g., /tree/person/details/KWQS-BYD)</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <div class="d-flex align-items-start">
-                                    <div class="flex-shrink-0">
-                                        <div class="rounded-circle d-flex align-items-center justify-content-center" 
-                                             style="width: 40px; height: 40px; background-color: var(--gold-primary); color: var(--deep-black); font-weight: 600;">
-                                            3
-                                        </div>
-                                    </div>
-                                    <div class="flex-grow-1 ms-3">
-                                        <h6 style="color: var(--gold-primary);">Copy the ID</h6>
-                                        <p class="mb-0" style="color: var(--text-gray); font-size: 0.9rem;">Copy just the ID part (e.g., KWQS-BYD) and paste it above</p>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Footer -->
-    <footer class="py-4 text-center" style="background-color: var(--deep-black); color: var(--text-gray);">
-        <div class="container">
-            <div class="d-flex align-items-center justify-content-center mb-2">
-                <img src="assets/saga.png" alt="Family Saga" style="height: 25px; width: auto; margin-right: 8px; border-radius: 50%;">
-                <span style="color: var(--gold-primary); font-weight: 600;">Family Saga</span>
+        <!-- Footer -->
+        <footer
+            class="py-4 text-center"
+            style="background-color: var(--deep-black); color: var(--text-gray)"
+        >
+            <div class="container">
+                <div
+                    class="d-flex align-items-center justify-content-center mb-2"
+                >
+                    <img
+                        src="assets/saga.png"
+                        alt="Family Saga"
+                        style="
+                            height: 25px;
+                            width: auto;
+                            margin-right: 8px;
+                            border-radius: 50%;
+                        "
+                    />
+                    <span style="color: var(--gold-primary); font-weight: 600"
+                        >Family Saga</span
+                    >
+                </div>
+                <p class="mb-0" style="font-size: 0.9rem">
+                    Crafting luxury family stories with sophisticated elegance.
+                </p>
             </div>
-            <p class="mb-0" style="font-size: 0.9rem;">Crafting luxury family stories with sophisticated elegance.</p>
-        </div>
-    </footer>
+        </footer>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Custom JS -->
-    <script src="familysearch.js"></script>
-    <script>
-        // Check if user is authenticated when page loads
-        document.addEventListener('DOMContentLoaded', async function() {
-            const accessToken = getCookie('fs_access_token');
-            if (!accessToken) {
-                // No token found, redirect to login
-                window.location.href = 'familysearch.html';
-                return;
-            }
+        <!-- Bootstrap JS -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-            // Set the global access token for the form submission
-            window.accessToken = accessToken;
+        <!-- Custom JS -->
+        <script src="familysearch.js"></script>
+        <script>
+            // Check if user is authenticated when page loads
+            document.addEventListener("DOMContentLoaded", async function () {
+                const accessToken = getCookie("fs_access_token");
+                if (!accessToken) {
+                    // No token found, redirect to login
+                    window.location.href = "familysearch.html";
+                    return;
+                }
 
-            // Fetch and display current person information
-            await loadCurrentPersonInfo(accessToken);
-        });
+                // Set the global access token for the form submission
+                window.accessToken = accessToken;
 
-        async function loadCurrentPersonInfo(accessToken) {
-            const currentPersonInfoDiv = document.getElementById('currentPersonInfo');
-            const startingPersonInput = document.getElementById('startingPerson');
-            const familyNameInput = document.getElementById('familyName');
+                // Fetch and display current person information
+                await loadCurrentPersonInfo(accessToken);
+            });
 
-            try {
-                // Show loading state
-                currentPersonInfoDiv.innerHTML = '<p style="color: #6b7280;">Loading your account information...</p>';
+            async function loadCurrentPersonInfo(accessToken) {
+                const currentPersonInfoDiv =
+                    document.getElementById("currentPersonInfo");
+                const startingPersonInput =
+                    document.getElementById("startingPerson");
+                const familyNameInput = document.getElementById("familyName");
 
-                // Fetch current person data
-                const currentPerson = await window.fetchCurrentPerson(accessToken);
-                const nameParts = currentPerson.name.split(' ');
+                try {
+                    // Show loading state
+                    currentPersonInfoDiv.innerHTML =
+                        '<p style="color: #6b7280;">Loading your account information...</p>';
 
-                if (currentPerson && currentPerson.name !== 'Unknown' && currentPerson.id !== 'Unknown') {
-                    // Display current person info
-                    currentPersonInfoDiv.innerHTML = `
+                    // Fetch current person data
+                    const currentPerson =
+                        await window.fetchCurrentPerson(accessToken);
+                    const nameParts = currentPerson.name.split(" ");
+
+                    if (
+                        currentPerson &&
+                        currentPerson.name !== "Unknown" &&
+                        currentPerson.id !== "Unknown"
+                    ) {
+                        // Display current person info
+                        currentPersonInfoDiv.innerHTML = `
                         <p style="margin: 8px 0; color: #047857; font-weight: 500;">
                             Logged in as <strong>${currentPerson.name}</strong><br>
                             <span style="font-size: 0.9rem; color: #059669;">FamilySearch ID: ${currentPerson.id}</span>
                         </p>
                     `;
 
-                    // Auto-fill the Starting Person ID field
-                    if (startingPersonInput) {
-                        startingPersonInput.value = currentPerson.id;
-                        startingPersonInput.style.backgroundColor = '#ecfdf5';
-                        startingPersonInput.style.borderColor = '#10b981';
-                        startingPersonInput.style.color = '#047857';
-                    }
+                        // Auto-fill the Starting Person ID field
+                        if (startingPersonInput) {
+                            startingPersonInput.value = currentPerson.id;
+                            startingPersonInput.style.backgroundColor =
+                                "#ecfdf5";
+                            startingPersonInput.style.borderColor = "#10b981";
+                            startingPersonInput.style.color = "#047857";
+                        }
 
-                    // Auto-fill the Family Name field with last name
-                    if (familyNameInput && nameParts.length > 0) {
-                        familyNameInput.value = nameParts[nameParts.length - 1]; // Last name
-                        familyNameInput.style.backgroundColor = '#ecfdf5';
-                        familyNameInput.style.borderColor = '#10b981';
-                        familyNameInput.style.color = '#047857';
-                    }
+                        // Auto-fill the Family Name field with last name
+                        if (familyNameInput && nameParts.length > 0) {
+                            familyNameInput.value =
+                                nameParts[nameParts.length - 1]; // Last name
+                            familyNameInput.style.backgroundColor = "#ecfdf5";
+                            familyNameInput.style.borderColor = "#10b981";
+                            familyNameInput.style.color = "#047857";
+                        }
 
-                    // Auto-fill the contact name field with full name
-                    const contactNameInput = document.getElementById('contactName');
-                    if (contactNameInput) {
-                        contactNameInput.value = currentPerson.name;
-                        contactNameInput.style.backgroundColor = '#ecfdf5';
-                        contactNameInput.style.borderColor = '#10b981';
-                        contactNameInput.style.color = '#047857';
-                    }
-                } else {
-                    // Show fallback message if we couldn't get the person info
-                    currentPersonInfoDiv.innerHTML = `
+                        // Auto-fill the contact name field with full name
+                        const contactNameInput =
+                            document.getElementById("contactName");
+                        if (contactNameInput) {
+                            contactNameInput.value = currentPerson.name;
+                            contactNameInput.style.backgroundColor = "#ecfdf5";
+                            contactNameInput.style.borderColor = "#10b981";
+                            contactNameInput.style.color = "#047857";
+                        }
+                    } else {
+                        // Show fallback message if we couldn't get the person info
+                        currentPersonInfoDiv.innerHTML = `
                         <p style="color: #6b7280; font-size: 0.9rem;">
                             Successfully authenticated with FamilySearch
                         </p>
                     `;
-                }
-            } catch (error) {
-                console.error('Error loading current person info:', error);
-                // Show fallback message on error
-                currentPersonInfoDiv.innerHTML = `
+                    }
+                } catch (error) {
+                    console.error("Error loading current person info:", error);
+                    // Show fallback message on error
+                    currentPersonInfoDiv.innerHTML = `
                     <p style="color: #6b7280; font-size: 0.9rem;">
                         Successfully authenticated with FamilySearch
                     </p>
                 `;
+                }
             }
-        }
-    </script>
-</body>
+        </script>
+    </body>
 </html>
