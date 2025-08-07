@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Saga - FamilySearch Login</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts - Scandinavian Typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="custom.css">
+    
+    <meta name="description" content="Connect with FamilySearch to create your luxury family tree chart with sophisticated black and gold design.">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark shadow-sm" style="background-color: var(--primary-black);">
+        <div class="container">
+            <a class="navbar-brand fw-bold d-flex align-items-center" href="index.html" style="color: var(--gold-primary);">
+                <img src="assets/saga.png" alt="Family Saga" style="height: 40px; width: auto; margin-right: 10px; border-radius: 50%;">
+                Family Saga
+            </a>
+            <div class="ms-auto">
+                <a href="index.html" class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Home
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="text-center mb-5">
+                    <h1 class="display-4 fw-bold mb-4" style="color: var(--gold-primary);">Connect with FamilySearch</h1>
+                    <p class="lead" style="color: var(--text-gray);">
+                        Access your family tree data directly from FamilySearch to create your luxury family chart
+                    </p>
+                </div>
+
+                <div class="card">
+                    <div class="card-body p-5">
+                        <div id="loginSection" class="text-center">
+                            <div class="mb-4">
+                                <img src="assets/fs_logo.png" alt="FamilySearch Logo" style="height: 100px; width: auto; margin-bottom: 20px; filter: saturate(150%) invert(1%) sepia(10%) brightness(100%) contrast(105%);">
+                                <h2 class="mb-3" style="color: var(--gold-primary);">Connect to FamilySearch</h2>
+                                <p class="mb-4" style="color: var(--text-gray);">
+                                    Sign in with your FamilySearch account to access your family tree data directly and create your luxury family chart.
+                                </p>
+                            </div>
+                            
+                            <div class="row mb-4">
+                                <div class="col-md-4 mb-3">
+                                    <div class="d-flex align-items-center justify-content-center">
+                                        <i class="fas fa-shield-alt me-3" style="color: var(--gold-primary); font-size: 1.5rem;"></i>
+                                        <span style="color: var(--text-gray);">Secure OAuth Authentication</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="d-flex align-items-center justify-content-center">
+                                        <i class="fas fa-sitemap me-3" style="color: var(--gold-primary); font-size: 1.5rem;"></i>
+                                        <span style="color: var(--text-gray);">Complete Family Tree Access</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="d-flex align-items-center justify-content-center">
+                                        <i class="fas fa-sync-alt me-3" style="color: var(--gold-primary); font-size: 1.5rem;"></i>
+                                        <span style="color: var(--text-gray);">Real-time Data</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button id="loginBtn" class="btn btn-nordic btn-lg mb-4">
+                                <i class="fas fa-sign-in-alt me-2"></i>
+                                Sign in with FamilySearch
+                            </button>
+
+                            <div class="alert alert-info" style="background-color: var(--light-black); border-color: var(--gold-primary); color: var(--text-gray);">
+                                <i class="fas fa-info-circle me-2" style="color: var(--gold-primary);"></i>
+                                <strong>Note:</strong> You'll be redirected to FamilySearch's secure login page. After authentication, you'll return here to configure your family tree.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="py-4 text-center" style="background-color: var(--deep-black); color: var(--text-gray);">
+        <div class="container">
+            <div class="d-flex align-items-center justify-content-center mb-2">
+                <img src="assets/saga.png" alt="Family Saga" style="height: 25px; width: auto; margin-right: 8px; border-radius: 50%;">
+                <span style="color: var(--gold-primary); font-weight: 600;">Family Saga</span>
+            </div>
+            <p class="mb-0" style="font-size: 0.9rem;">Crafting luxury family stories with sophisticated elegance.</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JS -->
+    <script src="familysearch.js"></script>
+</body>
+</html>
