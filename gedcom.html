@@ -77,7 +77,7 @@
                                     Upload GEDCOM File <span style="color: #dc3545;">*</span>
                                 </label>
                                 <div class="position-relative">
-                                    <input type="file" class="form-control" id="gedcomFile" name="gedcom_file" accept=".ged,.gedcom" required style="display: none;">
+                                    <input type="file" class="form-control" id="gedcomFile" name="gedcom_file" accept=".ged,.gedcom" style="display: none;">
                                     <div class="file-input-display border rounded p-3 text-center" style="cursor: pointer; border-color: var(--light-black) !important; background-color: var(--primary-black);">
                                         <i class="fas fa-cloud-upload-alt fa-2x mb-2" style="color: var(--gold-primary);"></i>
                                         <div class="file-text" style="color: var(--text-gray);">
@@ -103,7 +103,7 @@
                                     <option value="descendant">Descendant Tree</option>
                                 </select>
                             </div>
-                            
+
                             <div class="mb-3">
                                 <label for="generations" class="form-label">Number of Generations</label>
                                 <select class="form-select" id="generations" name="generations">
@@ -246,6 +246,32 @@
                     fileInput.dispatchEvent(new Event('change'));
                 }
             });
+        });
+
+        // Handle tree type changes to update generations options
+        document.addEventListener('DOMContentLoaded', function() {
+            const treeTypeSelect = document.getElementById('treeType');
+            if (treeTypeSelect) {
+                treeTypeSelect.addEventListener('change', function(e) {
+                    const generationsSelect = document.getElementById('generations');
+                    const treeType = e.target.value;
+
+                    if (treeType === 'descendant') {
+                        // For descendant trees, limit to 3-4 generations with 4 as default
+                        generationsSelect.innerHTML = `
+                            <option value="4" selected>4 Generations</option>
+                            <option value="3">3 Generations</option>
+                        `;
+                    } else {
+                        // For ancestor trees, show all options with 5 as default
+                        generationsSelect.innerHTML = `
+                            <option value="5" selected>5 Generations</option>
+                            <option value="4">4 Generations</option>
+                            <option value="3">3 Generations</option>
+                        `;
+                    }
+                });
+            }
         });
     </script>
 </body>

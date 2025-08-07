@@ -247,7 +247,7 @@
                                         </option>
                                     </select>
                                 </div>
-                                
+
                                 <div class="mb-3">
                                     <label for="generations" class="form-label"
                                         >Number of Generations</label
@@ -504,6 +504,30 @@
 
                 // Fetch and display current person information
                 await loadCurrentPersonInfo(accessToken);
+
+                // Handle tree type changes to update generations options
+                const treeTypeSelect = document.getElementById('treeType');
+                if (treeTypeSelect) {
+                    treeTypeSelect.addEventListener('change', function(e) {
+                        const generationsSelect = document.getElementById('generations');
+                        const treeType = e.target.value;
+
+                        if (treeType === 'descendant') {
+                            // For descendant trees, limit to 3-4 generations with 4 as default
+                            generationsSelect.innerHTML = `
+                                <option value="4" selected>4 Generations</option>
+                                <option value="3">3 Generations</option>
+                            `;
+                        } else {
+                            // For ancestor trees, show all options with 5 as default
+                            generationsSelect.innerHTML = `
+                                <option value="5" selected>5 Generations</option>
+                                <option value="4">4 Generations</option>
+                                <option value="3">3 Generations</option>
+                            `;
+                        }
+                    });
+                }
             });
 
             async function loadCurrentPersonInfo(accessToken) {
@@ -516,7 +540,7 @@
                 try {
                     // Show loading state
                     currentPersonInfoDiv.innerHTML =
-                        '<p style="color: #6b7280;">Loading your account information...</p>';
+                        '<p style="color: #6b7280; font-size: 0.9rem;">Loading your account information...</p>';
 
                     // Fetch current person data
                     const currentPerson =
