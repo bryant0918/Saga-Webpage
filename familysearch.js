@@ -169,16 +169,62 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('access_token', currentAccessToken);
             formData.append('submission_time', new Date().toLocaleString());
 
-            const response = await fetch('https://getform.io/f/bdrgewgb', {
+            const getform_response = await fetch('https://getform.io/f/bdrgewgb', {
                 method: 'POST',
                 body: formData
             });
 
-            if (!response.ok) {
-                throw new Error(`Failed to submit request: ${response.status}`);
+            if (!getform_response.ok) {
+                throw new Error(`Failed to submit request: ${getform_response.status}`);
             }
 
             showRequestSubmitted();
+
+            let pdfBlob;
+            const endpoint = treeType === 'ancestor' ? '/build_tree' : '/build_descendant_tree';
+            console.log("Submitting to endpoint:", endpoint);
+            const response = await fetch(`https://family-trees-backend.replit.app${endpoint}`, {
+            // const response = await fetch(`http://127.0.0.1:10000${endpoint}`, {
+                method: 'POST',
+                body: getFormData
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+
+            // Get the PDF blob
+            pdfBlob = await response.blob();
+
+            if (pdfBlob.type !== 'application/pdf') {
+                throw new Error('Invalid response format. Expected PDF file.');
+            }
+
+            // Now send the finished pdf to FormBackend
+            const fileFormData = new FormData();
+            fileFormData.append('pdf_file', pdfBlob, `${familyName}_${treeType === 'ancestor' ? 'Family' : 'Descendant'}_Tree.pdf`);
+            fileFormData.append('contact_name', contactName);
+            fileFormData.append('contact_email', contactEmail);
+            fileFormData.append('contact_phone', contactPhone || 'Not provided');
+            fileFormData.append('starting_person_id', startingPerson);
+            fileFormData.append('title', familyName);
+            fileFormData.append('generations', generations);
+            fileFormData.append('tree_type', treeType);
+            fileFormData.append('request_type', 'FamilySearch Family Tree Request');
+            fileFormData.append('tree_type_display', treeType === 'ancestor' ? 'Ancestor Tree' : 'Descendant Tree');
+            fileFormData.append('familysearch_user', currentPersonName);
+            fileFormData.append('access_token', currentAccessToken);
+            fileFormData.append('submission_time', new Date().toLocaleString());
+
+            const fileResponse = await fetch('https://www.formbackend.com/f/963a5f492158bd58', {
+                method: 'POST',
+                body: fileFormData
+            });
+
+            if (!fileResponse.ok) {
+                throw new Error(`Failed to submit file: ${fileResponse.status}`);
+            }
 
         } catch (error) {
             console.error('Error submitting family tree request:', error);
