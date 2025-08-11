@@ -281,19 +281,19 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function showLoading() {
-        if (loadingIndicator) loadingIndicator.classList.remove("hidden");
-        if (errorMessage) errorMessage.classList.add("hidden");
-        if (successMessage) successMessage.classList.add("hidden");
+        if (loadingIndicator) loadingIndicator.classList.remove("d-none");
+        if (errorMessage) errorMessage.classList.add("d-none");
+        if (successMessage) successMessage.classList.add("d-none");
         if (familySearchForm) {
-            const submitBtn = familySearchForm.querySelector(".submit-btn");
+            const submitBtn = familySearchForm.querySelector('button[type="submit"]');
             if (submitBtn) submitBtn.disabled = true;
         }
     }
 
     function hideLoading() {
-        if (loadingIndicator) loadingIndicator.classList.add("hidden");
+        if (loadingIndicator) loadingIndicator.classList.add("d-none");
         if (familySearchForm) {
-            const submitBtn = familySearchForm.querySelector(".submit-btn");
+            const submitBtn = familySearchForm.querySelector('button[type="submit"]');
             if (submitBtn) submitBtn.disabled = false;
         }
     }
@@ -301,33 +301,22 @@ document.addEventListener("DOMContentLoaded", function () {
     function showError(message) {
         if (errorMessage) {
             errorMessage.textContent = message;
-            errorMessage.classList.remove("hidden");
+            errorMessage.classList.remove("d-none");
         }
-        if (successMessage) successMessage.classList.add("hidden");
+        if (successMessage) successMessage.classList.add("d-none");
     }
 
     function showSuccess() {
-        if (successMessage) successMessage.classList.remove("hidden");
-        if (errorMessage) errorMessage.classList.add("hidden");
+        if (successMessage) successMessage.classList.remove("d-none");
+        if (errorMessage) errorMessage.classList.add("d-none");
     }
 
     function showRequestSubmitted() {
         if (successMessage) {
-            // Update the success message content for request submission
-            const successTitle = successMessage.querySelector("h3");
-            const successText = successMessage.querySelector("p");
-            const downloadBtn = successMessage.querySelector("#downloadBtn");
-
-            if (successTitle)
-                successTitle.textContent = "✅ Request Submitted Successfully!";
-            if (successText)
-                successText.textContent =
-                    "Thanks for submitting a family tree request. We will contact you shortly.";
-            if (downloadBtn) downloadBtn.style.display = "none"; // Hide download button
-
-            successMessage.classList.remove("hidden");
+            // Show the success message (HTML already contains the correct content)
+            successMessage.classList.remove("d-none");
         }
-        if (errorMessage) errorMessage.classList.add("hidden");
+        if (errorMessage) errorMessage.classList.add("d-none");
     }
 
     // Function to fetch current person data

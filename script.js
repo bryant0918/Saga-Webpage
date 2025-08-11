@@ -211,18 +211,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function showRequestSubmitted() {
-        // Update the success message content for request submission
-        const successTitle = successMessage.querySelector("h4");
-        const successText = successMessage.querySelector("p");
-        const downloadBtn = successMessage.querySelector("#downloadBtn");
-
-        if (successTitle)
-            successTitle.textContent = "✅ Request Submitted Successfully!";
-        if (successText)
-            successText.textContent =
-                "Thanks for submitting a family tree request. We will contact you shortly with your completed family tree.";
-        if (downloadBtn) downloadBtn.style.display = "none"; // Hide download button
-
+        // Show the success message (HTML already contains the correct content)
         successMessage.classList.remove("d-none");
         errorMessage.classList.add("d-none");
     }
