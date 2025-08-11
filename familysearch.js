@@ -180,19 +180,19 @@ document.addEventListener("DOMContentLoaded", function () {
             formData.append("access_token", currentAccessToken);
             formData.append("submission_time", new Date().toLocaleString());
 
-            const getform_response = await fetch(
-                "https://getform.io/f/bdrgewgb",
-                {
-                    method: "POST",
-                    body: formData,
-                },
-            );
+            // const getform_response = await fetch(
+            //     "https://getform.io/f/bdrgewgb",
+            //     {
+            //         method: "POST",
+            //         body: formData,
+            //     },
+            // );
 
-            if (!getform_response.ok) {
-                throw new Error(
-                    `Failed to submit request: ${getform_response.status}`,
-                );
-            }
+            // if (!getform_response.ok) {
+            //     throw new Error(
+            //         `Failed to submit request: ${getform_response.status}`,
+            //     );
+            // }
 
             showRequestSubmitted();
 
@@ -207,7 +207,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 {
                     // const response = await fetch(`http://127.0.0.1:10000${endpoint}`, {
                     method: "POST",
-                    body: getFormData,
+                    body: formData,
                 },
             );
 
