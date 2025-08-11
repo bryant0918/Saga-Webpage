@@ -214,4 +214,7 @@ gedcoms/*
 images/*
 trees/*
 
+# Configuration files with sensitive data
+app-config.js
+
 node_modules/

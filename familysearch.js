@@ -1,16 +1,20 @@
 // familysearch.js - Client-side FamilySearch authentication and tree generation
 
-// FamilySearch configuration
-const FS_CONFIG = {
-    APP_KEY: 'b00KBZ8PWGLG7SJ0A3U1',
-    REDIRECT_URI: 'https://bryantmcarthur.com/family-trees',
-    ENVIRONMENT: 'beta', // or 'production'
-    BASE_URL: 'https://identbeta.familysearch.org', // beta environment
-    TOKEN_URL: 'https://identbeta.familysearch.org/cis-web/oauth2/v3/token',
-    API_BASE_URL: 'https://apibeta.familysearch.org'
-};
-
+let FS_CONFIG = null;
 let pdfBlob = null;
+
+// Load configuration
+function loadConfig() {
+    if (!FS_CONFIG) {
+        try {
+            FS_CONFIG = window.appConfig.getConfig();
+        } catch (error) {
+            console.error('Failed to load FamilySearch configuration:', error);
+            throw error;
+        }
+    }
+    return FS_CONFIG;
+}
 
 // Cookie utility functions
 function setCookie(name, value, hours) {
@@ -87,17 +91,23 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function initiateOAuthFlow() {
-        const state = generateRandomString(16);
-        setCookie('oauth_state', state, 1); // 1 hour expiry
-        
-        const authUrl = `${FS_CONFIG.BASE_URL}/cis-web/oauth2/v3/authorization?` +
-            `response_type=code&` +
-            `client_id=${FS_CONFIG.APP_KEY}&` +
-            `redirect_uri=${encodeURIComponent(FS_CONFIG.REDIRECT_URI)}&` +
-            `scope=tree&` +
-            `state=${state}`;
-        
-        window.location.href = authUrl;
+        try {
+            const config = loadConfig();
+            const state = generateRandomString(16);
+            setCookie('oauth_state', state, 1); // 1 hour expiry
+            
+            const authUrl = `${config.base_url}/cis-web/oauth2/v3/authorization?` +
+                `response_type=code&` +
+                `client_id=${config.client_id}&` +
+                `redirect_uri=${encodeURIComponent(config.redirect_uri)}&` +
+                `scope=tree&` +
+                `state=${state}`;
+            
+            window.location.href = authUrl;
+        } catch (error) {
+            console.error('Failed to initiate OAuth flow:', error);
+            showError('Failed to start authentication. Please try again.');
+        }
     }
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -233,7 +243,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to fetch current person data
     async function fetchCurrentPerson(accessToken) {
         try {
-            const response = await fetch(`${FS_CONFIG.API_BASE_URL}/platform/tree/current-person`, {
+            const config = loadConfig();
+            const response = await fetch(`${config.api_base_url}/platform/tree/current-person`, {
                 method: 'GET',
                 headers: {
                     'Accept': 'application/x-gedcomx-v1+json',

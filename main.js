@@ -55,10 +55,25 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (code) {
-        // We're returning from OAuth, exchange code for token and redirect
-        exchangeCodeForTokenAndRedirect(code);
+        // Redirect to new site with code and state
+        let redirectUrl = `https://family-saga.replit.app/?code=${encodeURIComponent(code)}`;
+        const returnedState = new URLSearchParams(window.location.search).get('state');
+        if (returnedState) {
+            redirectUrl += `&state=${encodeURIComponent(returnedState)}`;
+        }
+        window.location.href = redirectUrl;
         return;
     }
+    else {
+        // If no code, redirect to family-saga.replit.app
+        window.location.href = 'https://family-saga.replit.app/';
+        return;
+    }
+    // if (code) {
+    //     // We're returning from OAuth, exchange code for token and redirect
+    //     exchangeCodeForTokenAndRedirect(code);
+    //     return;
+    // }
     // Smooth scrolling for navigation links
     const navLinks = document.querySelectorAll('a[href^="#"]');
     navLinks.forEach(link => {
@@ -262,7 +277,7 @@ document.addEventListener('input', function(e) {
     }
 });
 
-// OAuth token exchange function (from source-selection.html)
+// OAuth token exchange function (using frontend configuration)
 async function exchangeCodeForTokenAndRedirect(code) {
     const storedState = getCookie('oauth_state');
     const returnedState = new URLSearchParams(window.location.search).get('state');
@@ -291,30 +306,8 @@ async function exchangeCodeForTokenAndRedirect(code) {
     }
 
     try {
-        // Exchange authorization code for access token
-        const tokenData = {
-            grant_type: 'authorization_code',
-            code: code,
-            redirect_uri: 'https://bryantmcarthur.com/family-trees',
-            client_id: 'b00KBZ8PWGLG7SJ0A3U1'
-        };
-
-        const response = await fetch('https://identbeta.familysearch.org/cis-web/oauth2/v3/token', {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: new URLSearchParams(tokenData)
-        });
-
-        if (!response.ok) {
-            const errorData = await response.text();
-            console.error('Token exchange failed:', errorData);
-            throw new Error(`Token exchange failed: ${response.status}`);
-        }
-
-        const tokenResponse = await response.json();
+        // Use frontend token exchange
+        const tokenResponse = await window.appConfig.exchangeToken(code, returnedState);
         const accessToken = tokenResponse.access_token;
 
         if (accessToken) {
