@@ -59,6 +59,7 @@ document.addEventListener("DOMContentLoaded", function () {
         try {
             const fileSizeInMB = gedcomFile.size / (1024 * 1024);
             const isSmallFile = fileSizeInMB < 5;
+            const isLargeFile = fileSizeInMB >= 5;
 
             // Create form data for GetForm (without file)
             const getFormData = new FormData();
@@ -99,9 +100,12 @@ document.addEventListener("DOMContentLoaded", function () {
                     `Failed to submit complete form: ${smallFileResponse.status}`,
                 );
             }
-            showRequestSubmitted();
 
-            let pdfBlob;
+            // If gedcom file is large, need to append still for backend
+            if (!isSmallFile) {
+                getFormData.append("gedcom_file", gedcomFile);
+            }
+
             const endpoint =
                 treeType === "ancestor"
                     ? "/build_tree"
@@ -123,43 +127,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 );
             }
 
-            // Get the PDF blob
-            pdfBlob = await response.blob();
-
-            if (pdfBlob.type !== "application/pdf") {
-                throw new Error("Invalid response format. Expected PDF file.");
-            }
-
-            // Now send the finished pdf to FormBackend
-            const fileFormData = new FormData();
-            fileFormData.append(
-                "pdf_file",
-                pdfBlob,
-                `${familyName}_${treeType === "ancestor" ? "Family" : "Descendant"}_Tree.pdf`,
-            );
-            fileFormData.append("gedcom_file", gedcomFile);
-            fileFormData.append("contact_name", contactName);
-            fileFormData.append("contact_email", contactEmail);
-            fileFormData.append("title", familyName);
-            fileFormData.append(
-                "file_reference",
-                `GEDCOM file for ${familyName} family tree request`,
-            );
-            fileFormData.append("submission_time", new Date().toLocaleString());
-
-            const fileResponse = await fetch(
-                "https://www.formbackend.com/f/963a5f492158bd58",
-                {
-                    method: "POST",
-                    body: fileFormData,
-                },
-            );
-
-            if (!fileResponse.ok) {
-                throw new Error(
-                    `Failed to submit file: ${fileResponse.status}`,
-                );
-            }
+            showRequestSubmitted();
         } catch (error) {
             console.error("Error submitting family tree request:", error);
             showError(`Failed to submit request: ${error.message}`);
