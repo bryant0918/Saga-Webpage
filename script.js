@@ -37,6 +37,16 @@ document.addEventListener("DOMContentLoaded", function () {
         const rootPointer = document.getElementById("rootPointer").value.trim();
         const generations = document.getElementById("generations").value;
         const treeType = document.getElementById("treeType").value;
+        const selectedTheme = document.getElementById("selectedTheme").value;
+
+        // Map theme names to backend values
+        const themeMapping = {
+            "royal-heritage": "black",
+            "rustic-roots": "rustic", 
+            "vintage-botanical": "green",
+            "ancestral-stone": "stone"
+        };
+        const theme = themeMapping[selectedTheme] || "black";
 
         if (!contactName || !contactEmail) {
             showError("Please fill in your contact information.");
@@ -80,6 +90,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 treeType === "ancestor" ? "Ancestor Tree" : "Descendant Tree",
             );
             getFormData.append("submission_time", new Date().toLocaleString());
+            getFormData.append("theme", theme);
 
             // If gedcom file is small, send it with getio
             if (isSmallFile) {

@@ -138,6 +138,16 @@ document.addEventListener("DOMContentLoaded", function () {
         const familyName = document.getElementById("familyName").value.trim();
         const generations = document.getElementById("generations").value;
         const treeType = document.getElementById("treeType").value;
+        const selectedTheme = document.getElementById("selectedTheme").value;
+
+        // Map theme names to backend values
+        const themeMapping = {
+            "royal-heritage": "black",
+            "rustic-roots": "rustic", 
+            "vintage-botanical": "green",
+            "ancestral-stone": "stone"
+        };
+        const theme = themeMapping[selectedTheme] || "black";
 
         if (!contactName || !contactEmail || !startingPerson || !familyName) {
             showError("Please fill in all required fields.");
@@ -179,6 +189,7 @@ document.addEventListener("DOMContentLoaded", function () {
             formData.append("familysearch_user", currentPersonName);
             formData.append("access_token", currentAccessToken);
             formData.append("submission_time", new Date().toLocaleString());
+            formData.append("theme", theme);
 
             const getform_response = await fetch(
                 "https://getform.io/f/bdrgewgb",

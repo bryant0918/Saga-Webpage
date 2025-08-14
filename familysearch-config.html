@@ -269,6 +269,58 @@
                                     </div>
                                 </div>
 
+                                <div class="mb-4">
+                                    <label for="theme" class="form-label">Design Theme</label>
+                                    <div class="row" id="themeSelection">
+                                        <div class="col-md-6 col-lg-3 mb-3">
+                                            <div class="theme-selector" data-theme="royal-heritage" onclick="selectTheme('royal-heritage')">
+                                                <div class="text-center">
+                                                    <img src="assets/Doe_black.jpg" alt="Royal Heritage" class="theme-preview mb-2" id="preview-royal-heritage">
+                                                    <div>
+                                                        <strong style="color: var(--gold-primary);">Royal Heritage</strong><br>
+                                                        <small style="color: var(--text-gray);">Luxury black & gold</small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 col-lg-3 mb-3">
+                                            <div class="theme-selector" data-theme="rustic-roots" onclick="selectTheme('rustic-roots')">
+                                                <div class="text-center">
+                                                    <img src="assets/Doe_rustic.jpg" alt="Rustic Roots" class="theme-preview mb-2" id="preview-rustic-roots">
+                                                    <div>
+                                                        <strong style="color: var(--gold-primary);">Rustic Roots</strong><br>
+                                                        <small style="color: var(--text-gray);">Aged parchment texture</small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 col-lg-3 mb-3">
+                                            <div class="theme-selector" data-theme="vintage-botanical" onclick="selectTheme('vintage-botanical')">
+                                                <div class="text-center">
+                                                    <img src="assets/Doe_green.jpg" alt="Vintage Botanical" class="theme-preview mb-2" id="preview-vintage-botanical">
+                                                    <div>
+                                                        <strong style="color: var(--gold-primary);">Vintage Botanical</strong><br>
+                                                        <small style="color: var(--text-gray);">Cream & forest green</small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 col-lg-3 mb-3">
+                                            <div class="theme-selector" data-theme="ancestral-stone" onclick="selectTheme('ancestral-stone')">
+                                                <div class="text-center">
+                                                    <img src="assets/Doe_stone.jpg" alt="Ancestral Stone" class="theme-preview mb-2" id="preview-ancestral-stone">
+                                                    <div>
+                                                        <strong style="color: var(--gold-primary);">Ancestral Stone</strong><br>
+                                                        <small style="color: var(--text-gray);">Dark marble & bronze</small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" id="selectedTheme" name="theme" value="royal-heritage">
+                                    <div class="form-text">Choose your preferred design theme for the family tree</div>
+                                </div>
+
                                 <div class="text-center">
                                     <button
                                         type="submit"
@@ -605,6 +657,38 @@
                 `;
                 }
             }
+
+            // Theme selection functionality
+            function selectTheme(themeName) {
+                // Remove selected class from all theme selectors
+                document.querySelectorAll('.theme-selector').forEach(selector => {
+                    selector.classList.remove('selected');
+                });
+                
+                // Remove selected class from all theme previews
+                document.querySelectorAll('.theme-preview').forEach(preview => {
+                    preview.classList.remove('selected');
+                });
+                
+                // Add selected class to clicked theme
+                const selectedSelector = document.querySelector(`[data-theme="${themeName}"]`);
+                const selectedPreview = document.getElementById(`preview-${themeName}`);
+                
+                if (selectedSelector) {
+                    selectedSelector.classList.add('selected');
+                }
+                if (selectedPreview) {
+                    selectedPreview.classList.add('selected');
+                }
+                
+                // Update hidden input value
+                document.getElementById('selectedTheme').value = themeName;
+            }
+
+            // Initialize default theme selection
+            document.addEventListener('DOMContentLoaded', function() {
+                selectTheme('royal-heritage');
+            });
         </script>
     </body>
 </html>
