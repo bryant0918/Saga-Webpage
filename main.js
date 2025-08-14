@@ -170,6 +170,18 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // Theme image click handlers
+    const themeCards = document.querySelectorAll('.theme-card');
+    themeCards.forEach(card => {
+        card.addEventListener('click', function() {
+            const img = this.querySelector('.theme-image');
+            if (img) {
+                // Open image in new window/tab
+                window.open(img.src, '_blank');
+            }
+        });
+    });
 });
 
 // Field validation function
