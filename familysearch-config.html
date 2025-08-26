@@ -626,12 +626,15 @@
                         currentPerson.name !== "Unknown" &&
                         currentPerson.id !== "Unknown"
                     ) {
-                        // Display current person info
+                        // Display current person info with Switch User button
                         currentPersonInfoDiv.innerHTML = `
                         <p style="margin: 8px 0; color: #047857; font-weight: 500;">
                             Logged in as <strong>${currentPerson.name}</strong><br>
                             <span style="font-size: 0.9rem; color: #059669;">FamilySearch ID: ${currentPerson.id}</span>
                         </p>
+                        <button onclick="switchUser()" class="btn btn-outline-secondary btn-sm mt-2" style="border-color: var(--gold-primary); color: var(--gold-primary);">
+                            <i class="fas fa-user-switch me-1"></i>Switch User
+                        </button>
                     `;
 
                         // Auto-fill the Starting Person ID field
@@ -711,6 +714,16 @@
             document.addEventListener('DOMContentLoaded', function() {
                 selectTheme('royal-heritage');
             });
+
+            // Switch User functionality
+            function switchUser() {
+                // Clear FamilySearch authentication cookies
+                document.cookie = "fs_access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                document.cookie = "fs_refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                
+                // Redirect to FamilySearch login page to reinitiate OAuth flow
+                window.location.href = "familysearch.html";
+            }
         </script>
     </body>
 </html>
