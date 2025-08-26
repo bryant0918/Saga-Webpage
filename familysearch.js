@@ -143,9 +143,9 @@ document.addEventListener("DOMContentLoaded", function () {
         // Map theme names to backend values
         const themeMapping = {
             "royal-heritage": "black",
-            "rustic-roots": "rustic", 
+            "rustic-roots": "rustic",
             "vintage-botanical": "green",
-            "ancestral-stone": "stone"
+            "ancestral-stone": "stone",
         };
         const theme = themeMapping[selectedTheme] || "black";
 
@@ -155,8 +155,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         // Get access token from cookie or global variable
-        const currentAccessToken =
-            window.accessToken //|| getCookie("fs_access_token");
+        const currentAccessToken = window.accessToken; //|| getCookie("fs_access_token");
         if (!currentAccessToken) {
             showError("Not authenticated. Please log in again.");
             return;
