@@ -156,7 +156,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Get access token from cookie or global variable
         const currentAccessToken =
-            window.accessToken || getCookie("fs_access_token");
+            window.accessToken //|| getCookie("fs_access_token");
         if (!currentAccessToken) {
             showError("Not authenticated. Please log in again.");
             return;
