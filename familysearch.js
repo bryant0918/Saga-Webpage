@@ -77,7 +77,9 @@ document.addEventListener("DOMContentLoaded", function () {
     // Login button click handler
     if (loginBtn) {
         loginBtn.addEventListener("click", function () {
-            initiateOAuthFlow();
+            // Check if this is a switch user scenario
+            const isSwitchUser = switchUser === "true";
+            initiateOAuthFlow(isSwitchUser);
         });
     }
 
@@ -110,17 +112,22 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    function initiateOAuthFlow() {
+    function initiateOAuthFlow(forceLogin = false) {
         const state = generateRandomString(16);
         setCookie("oauth_state", state, 1); // 1 hour expiry
 
-        const authUrl =
+        let authUrl =
             `${FS_CONFIG.BASE_URL}/cis-web/oauth2/v3/authorization?` +
             `response_type=code&` +
             `client_id=${FS_CONFIG.APP_KEY}&` +
             `redirect_uri=${encodeURIComponent(FS_CONFIG.REDIRECT_URI)}&` +
             `scope=profile email tree&` +
             `state=${state}`;
+
+        // Add prompt=login to force re-authentication when switching users
+        if (forceLogin) {
+            authUrl += `&prompt=login`;
+        }
 
         window.location.href = authUrl;
     }
