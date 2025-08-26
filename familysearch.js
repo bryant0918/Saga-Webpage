@@ -187,7 +187,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 treeType === "ancestor" ? "Ancestor Tree" : "Descendant Tree",
             );
             formData.append("familysearch_user", currentPersonName);
-            formData.append("access_token", currentAccessToken);
+            // formData.append("access_token", currentAccessToken);
             formData.append("submission_time", new Date().toLocaleString());
             formData.append("theme", theme);
 
