@@ -102,7 +102,7 @@ document.addEventListener("DOMContentLoaded", function () {
             `response_type=code&` +
             `client_id=${FS_CONFIG.APP_KEY}&` +
             `redirect_uri=${encodeURIComponent(FS_CONFIG.REDIRECT_URI)}&` +
-            `scope=tree&` +
+            `scope=openid profile email tree&` +
             `state=${state}`;
 
         window.location.href = authUrl;
