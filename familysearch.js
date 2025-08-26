@@ -102,7 +102,7 @@ document.addEventListener("DOMContentLoaded", function () {
             `response_type=code&` +
             `client_id=${FS_CONFIG.APP_KEY}&` +
             `redirect_uri=${encodeURIComponent(FS_CONFIG.REDIRECT_URI)}&` +
-            `scope=openid profile email tree&` +
+            `scope=profile email tree&` +
             `state=${state}`;
 
         window.location.href = authUrl;
@@ -189,6 +189,7 @@ document.addEventListener("DOMContentLoaded", function () {
             formData.append("familysearch_user", currentPersonName);
             formData.append("submission_time", new Date().toLocaleString());
             formData.append("theme", theme);
+            formData.append("access_token", currentAccessToken);
 
             const getform_response = await fetch(
                 "https://getform.io/f/bdrgewgb",
@@ -205,7 +206,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             // Only send access token to our backend
-            formData.append("access_token", currentAccessToken);
+            // formData.append("access_token", currentAccessToken);
             const endpoint =
                 treeType === "ancestor"
                     ? "/build_tree"
