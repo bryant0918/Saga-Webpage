@@ -57,6 +57,23 @@ document.addEventListener("DOMContentLoaded", function () {
     const successMessage = document.getElementById("successMessage");
     const downloadBtn = document.getElementById("downloadBtn");
 
+    // Check if this is a switch user request
+    const urlParams = new URLSearchParams(window.location.search);
+    const switchUser = urlParams.get("switch_user");
+    
+    if (switchUser === "true") {
+        // Clear any remaining authentication data
+        deleteCookie("fs_access_token");
+        deleteCookie("fs_refresh_token");
+        deleteCookie("oauth_state");
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        // Remove the switch_user parameter from URL
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+    }
+
     // Login button click handler
     if (loginBtn) {
         loginBtn.addEventListener("click", function () {
@@ -108,7 +125,6 @@ document.addEventListener("DOMContentLoaded", function () {
         window.location.href = authUrl;
     }
 
-    const urlParams = new URLSearchParams(window.location.search);
     const oauthCode = urlParams.get("code");
     const returnedState = urlParams.get("state");
     const storedState = getCookie("oauth_state");

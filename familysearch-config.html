@@ -717,12 +717,21 @@
 
             // Switch User functionality
             function switchUser() {
-                // Clear FamilySearch authentication cookies
+                // Clear all FamilySearch authentication data
                 document.cookie = "fs_access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
                 document.cookie = "fs_refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                document.cookie = "oauth_state=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
                 
-                // Redirect to FamilySearch login page to reinitiate OAuth flow
-                window.location.href = "familysearch.html";
+                // Clear localStorage and sessionStorage
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Clear global access token
+                window.accessToken = null;
+                
+                // Add a timestamp parameter to force fresh authentication
+                const timestamp = new Date().getTime();
+                window.location.href = `familysearch.html?switch_user=true&t=${timestamp}`;
             }
         </script>
     </body>
