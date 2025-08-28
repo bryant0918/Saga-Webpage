@@ -307,7 +307,7 @@ async function exchangeCodeForTokenAndRedirect(code) {
         const tokenData = {
             grant_type: 'authorization_code',
             code: code,
-            redirect_uri: window.location.origin,
+            redirect_uri: window.location.origin + "/",
             client_id: 'b00KBZ8PWGLG7SJ0A3U1'
         };
 

@@ -3,7 +3,7 @@
 // FamilySearch configuration
 const FS_CONFIG = {
     APP_KEY: "b00KBZ8PWGLG7SJ0A3U1",
-    REDIRECT_URI: window.location.origin,
+    REDIRECT_URI: window.location.origin + "/",
     ENVIRONMENT: "beta", // or 'production'
     BASE_URL: "https://identbeta.familysearch.org", // beta environment
     TOKEN_URL: "https://identbeta.familysearch.org/cis-web/oauth2/v3/token",
@@ -55,7 +55,7 @@ document.addEventListener("DOMContentLoaded", function () {
     console.log("🔗 Redirect URI that will be used:", FS_CONFIG.REDIRECT_URI);
     console.log("🌐 Current domain origin:", window.location.origin);
     console.log("📍 Current full URL:", window.location.href);
-    console.log("✅ Redirect URI matches current origin:", FS_CONFIG.REDIRECT_URI === window.location.origin);
+    console.log("✅ Redirect URI matches current origin + '/':", FS_CONFIG.REDIRECT_URI === (window.location.origin + "/"));
     console.log("================================");
 
     const loginBtn = document.getElementById("loginBtn");
