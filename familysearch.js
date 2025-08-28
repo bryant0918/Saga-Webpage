@@ -50,6 +50,14 @@ function generateRandomString(length) {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
+    // Log redirect URI information when page loads
+    console.log("=== FAMILYSEARCH PAGE LOADED ===");
+    console.log("🔗 Redirect URI that will be used:", FS_CONFIG.REDIRECT_URI);
+    console.log("🌐 Current domain origin:", window.location.origin);
+    console.log("📍 Current full URL:", window.location.href);
+    console.log("✅ Redirect URI matches current origin:", FS_CONFIG.REDIRECT_URI === window.location.origin);
+    console.log("================================");
+
     const loginBtn = document.getElementById("loginBtn");
     const familySearchForm = document.getElementById("familySearchForm");
     const loadingIndicator = document.getElementById("loadingIndicator");
@@ -116,6 +124,10 @@ document.addEventListener("DOMContentLoaded", function () {
         const state = generateRandomString(16);
         setCookie("oauth_state", state, 1); // 1 hour expiry
 
+        // Log the redirect URI for debugging
+        console.log("🔗 Redirect URI being used:", FS_CONFIG.REDIRECT_URI);
+        console.log("🌐 Current domain origin:", window.location.origin);
+
         let authUrl =
             `${FS_CONFIG.BASE_URL}/cis-web/oauth2/v3/authorization?` +
             `response_type=code&` +
@@ -128,6 +140,14 @@ document.addEventListener("DOMContentLoaded", function () {
         if (forceLogin) {
             authUrl += `&prompt=login`;
         }
+
+        console.log("🚀 Full OAuth URL:", authUrl);
+        console.log("📋 OAuth Parameters:", {
+            redirect_uri: FS_CONFIG.REDIRECT_URI,
+            client_id: FS_CONFIG.APP_KEY,
+            state: state,
+            forceLogin: forceLogin
+        });
 
         window.location.href = authUrl;
     }
