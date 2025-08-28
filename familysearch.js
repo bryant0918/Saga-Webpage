@@ -3,7 +3,7 @@
 // FamilySearch configuration
 const FS_CONFIG = {
     APP_KEY: "b00KBZ8PWGLG7SJ0A3U1",
-    REDIRECT_URI: "https://bryantmcarthur.com/family-trees",
+    REDIRECT_URI: window.location.origin,
     ENVIRONMENT: "beta", // or 'production'
     BASE_URL: "https://identbeta.familysearch.org", // beta environment
     TOKEN_URL: "https://identbeta.familysearch.org/cis-web/oauth2/v3/token",
