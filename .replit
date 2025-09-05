@@ -6,3 +6,6 @@ channel = "stable-25_05"
 [deployment]
 deploymentTarget = "static"
 publicDir = "."
+
+[agent]
+expertMode = true
