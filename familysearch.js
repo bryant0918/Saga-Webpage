@@ -4,10 +4,14 @@
 const FS_CONFIG = {
     APP_KEY: "b00KBZ8PWGLG7SJ0A3U1",
     REDIRECT_URI: window.location.origin + "/",
-    ENVIRONMENT: "beta", // or 'production'
-    BASE_URL: "https://identbeta.familysearch.org", // beta environment
-    TOKEN_URL: "https://identbeta.familysearch.org/cis-web/oauth2/v3/token",
-    API_BASE_URL: "https://apibeta.familysearch.org",
+    // ENVIRONMENT: "beta",
+    ENVIRONMENT: "production",
+    // BASE_URL: "https://identbeta.familysearch.org", // beta environment
+    BASE_URL: "https://ident.familysearch.org", // production environment
+    // TOKEN_URL: "https://identbeta.familysearch.org/cis-web/oauth2/v3/token",
+    TOKEN_URL: "https://ident.familysearch.org/cis-web/oauth2/v3/token",
+    // API_BASE_URL: "https://apibeta.familysearch.org",
+    API_BASE_URL: "https://api.familysearch.org",
 };
 
 let pdfBlob = null;

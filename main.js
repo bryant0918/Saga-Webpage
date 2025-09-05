@@ -311,7 +311,8 @@ async function exchangeCodeForTokenAndRedirect(code) {
             client_id: 'b00KBZ8PWGLG7SJ0A3U1'
         };
 
-        const response = await fetch('https://identbeta.familysearch.org/cis-web/oauth2/v3/token', {
+        // const response = await fetch('https://identbeta.familysearch.org/cis-web/oauth2/v3/token', {
+        const response = await fetch('https://ident.familysearch.org/cis-web/oauth2/v3/token', {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',
