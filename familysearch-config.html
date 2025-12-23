@@ -178,6 +178,7 @@
                                         id="contactPhone"
                                         name="contact_phone"
                                         placeholder="Enter your phone number (optional)"
+                                        required
                                     />
                                 </div>
 
@@ -270,55 +271,165 @@
                                 </div>
 
                                 <div class="mb-4">
-                                    <label for="theme" class="form-label">Design Theme</label>
+                                    <label for="theme" class="form-label"
+                                        >Design Theme</label
+                                    >
                                     <div class="row" id="themeSelection">
                                         <div class="col-md-6 col-lg-3 mb-3">
-                                            <div class="theme-selector" data-theme="royal-heritage" onclick="selectTheme('royal-heritage')">
+                                            <div
+                                                class="theme-selector"
+                                                data-theme="royal-heritage"
+                                                onclick="selectTheme('royal-heritage')"
+                                            >
                                                 <div class="text-center">
-                                                    <img src="assets/Eichelberger_black.jpg" alt="Royal Heritage" class="theme-preview mb-2" id="preview-royal-heritage">
+                                                    <img
+                                                        src="assets/Eichelberger_black.jpg"
+                                                        alt="Royal Heritage"
+                                                        class="theme-preview mb-2"
+                                                        id="preview-royal-heritage"
+                                                    />
                                                     <div>
-                                                        <strong style="color: var(--gold-primary);">Royal Heritage</strong><br>
-                                                        <small style="color: var(--text-gray);">Luxury black & gold</small>
+                                                        <strong
+                                                            style="
+                                                                color: var(
+                                                                    --gold-primary
+                                                                );
+                                                            "
+                                                            >Royal
+                                                            Heritage</strong
+                                                        ><br />
+                                                        <small
+                                                            style="
+                                                                color: var(
+                                                                    --text-gray
+                                                                );
+                                                            "
+                                                            >Luxury black &
+                                                            gold</small
+                                                        >
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="col-md-6 col-lg-3 mb-3">
-                                            <div class="theme-selector" data-theme="rustic-roots" onclick="selectTheme('rustic-roots')">
+                                            <div
+                                                class="theme-selector"
+                                                data-theme="rustic-roots"
+                                                onclick="selectTheme('rustic-roots')"
+                                            >
                                                 <div class="text-center">
-                                                    <img src="assets/Eichelberger_rustic.jpg" alt="Rustic Roots" class="theme-preview mb-2" id="preview-rustic-roots">
+                                                    <img
+                                                        src="assets/Eichelberger_rustic.jpg"
+                                                        alt="Rustic Roots"
+                                                        class="theme-preview mb-2"
+                                                        id="preview-rustic-roots"
+                                                    />
                                                     <div>
-                                                        <strong style="color: var(--gold-primary);">Rustic Roots</strong><br>
-                                                        <small style="color: var(--text-gray);">Aged parchment texture</small>
+                                                        <strong
+                                                            style="
+                                                                color: var(
+                                                                    --gold-primary
+                                                                );
+                                                            "
+                                                            >Rustic
+                                                            Roots</strong
+                                                        ><br />
+                                                        <small
+                                                            style="
+                                                                color: var(
+                                                                    --text-gray
+                                                                );
+                                                            "
+                                                            >Aged parchment
+                                                            texture</small
+                                                        >
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="col-md-6 col-lg-3 mb-3">
-                                            <div class="theme-selector" data-theme="vintage-botanical" onclick="selectTheme('vintage-botanical')">
+                                            <div
+                                                class="theme-selector"
+                                                data-theme="vintage-botanical"
+                                                onclick="selectTheme('vintage-botanical')"
+                                            >
                                                 <div class="text-center">
-                                                    <img src="assets/Eichelberger_green.jpg" alt="Vintage Botanical" class="theme-preview mb-2" id="preview-vintage-botanical">
+                                                    <img
+                                                        src="assets/Eichelberger_green.jpg"
+                                                        alt="Vintage Botanical"
+                                                        class="theme-preview mb-2"
+                                                        id="preview-vintage-botanical"
+                                                    />
                                                     <div>
-                                                        <strong style="color: var(--gold-primary);">Vintage Botanical</strong><br>
-                                                        <small style="color: var(--text-gray);">Cream & forest green</small>
+                                                        <strong
+                                                            style="
+                                                                color: var(
+                                                                    --gold-primary
+                                                                );
+                                                            "
+                                                            >Vintage
+                                                            Botanical</strong
+                                                        ><br />
+                                                        <small
+                                                            style="
+                                                                color: var(
+                                                                    --text-gray
+                                                                );
+                                                            "
+                                                            >Cream & forest
+                                                            green</small
+                                                        >
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="col-md-6 col-lg-3 mb-3">
-                                            <div class="theme-selector" data-theme="ancestral-stone" onclick="selectTheme('ancestral-stone')">
+                                            <div
+                                                class="theme-selector"
+                                                data-theme="ancestral-stone"
+                                                onclick="selectTheme('ancestral-stone')"
+                                            >
                                                 <div class="text-center">
-                                                    <img src="assets/Eichelberger_stone.jpg" alt="Ancestral Stone" class="theme-preview mb-2" id="preview-ancestral-stone">
+                                                    <img
+                                                        src="assets/Eichelberger_stone.jpg"
+                                                        alt="Ancestral Stone"
+                                                        class="theme-preview mb-2"
+                                                        id="preview-ancestral-stone"
+                                                    />
                                                     <div>
-                                                        <strong style="color: var(--gold-primary);">Ancestral Stone</strong><br>
-                                                        <small style="color: var(--text-gray);">Dark marble & bronze</small>
+                                                        <strong
+                                                            style="
+                                                                color: var(
+                                                                    --gold-primary
+                                                                );
+                                                            "
+                                                            >Ancestral
+                                                            Stone</strong
+                                                        ><br />
+                                                        <small
+                                                            style="
+                                                                color: var(
+                                                                    --text-gray
+                                                                );
+                                                            "
+                                                            >Dark marble &
+                                                            bronze</small
+                                                        >
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                    <input type="hidden" id="selectedTheme" name="theme" value="royal-heritage">
-                                    <div class="form-text">Choose your preferred design theme for the family tree</div>
+                                    <input
+                                        type="hidden"
+                                        id="selectedTheme"
+                                        name="theme"
+                                        value="royal-heritage"
+                                    />
+                                    <div class="form-text">
+                                        Choose your preferred design theme for
+                                        the family tree
+                                    </div>
                                 </div>
 
                                 <!-- Total Price Display -->
@@ -338,12 +449,34 @@
                             </form>
 
                             <!-- Note Box -->
-                            <div class="alert alert-info mt-4" style="background: linear-gradient(135deg, #e0f2fe 0%, #e1f5fe 100%); border-color: var(--gold-primary); color: #0277bd;">
+                            <div
+                                class="alert alert-info mt-4"
+                                style="
+                                    background: linear-gradient(
+                                        135deg,
+                                        #e0f2fe 0%,
+                                        #e1f5fe 100%
+                                    );
+                                    border-color: var(--gold-primary);
+                                    color: #0277bd;
+                                "
+                            >
                                 <div class="d-flex align-items-start">
-                                    <i class="fas fa-info-circle me-3 mt-1" style="color: var(--gold-primary);"></i>
+                                    <i
+                                        class="fas fa-info-circle me-3 mt-1"
+                                        style="color: var(--gold-primary)"
+                                    ></i>
                                     <div>
-                                        <strong style="color: var(--gold-primary);">Note:</strong> 
-                                        Please ensure all names, dates, and pictures are up-to-date on familysearch.com before submitting a tree request. Our tree can only be as good as the data available in family search.
+                                        <strong
+                                            style="color: var(--gold-primary)"
+                                            >Note:</strong
+                                        >
+                                        Please ensure all names, dates, and
+                                        pictures are up-to-date on
+                                        familysearch.com before submitting a
+                                        tree request. Our tree can only be as
+                                        good as the data available in family
+                                        search.
                                     </div>
                                 </div>
                             </div>
@@ -383,8 +516,9 @@
                                     <h4>✅ Request Submitted Successfully!</h4>
                                     <p class="mb-0">
                                         Thanks for submitting a family tree
-                                        request. We will be in contact with you shortly 
-                                        with your completed family tree and to gather payment.
+                                        request. We will be in contact with you
+                                        shortly with your completed family tree
+                                        and to gather payment.
                                     </p>
                                 </div>
                             </div>
@@ -576,13 +710,14 @@
                 await loadCurrentPersonInfo(accessToken);
 
                 // Handle tree type changes to update generations options
-                const treeTypeSelect = document.getElementById('treeType');
+                const treeTypeSelect = document.getElementById("treeType");
                 if (treeTypeSelect) {
-                    treeTypeSelect.addEventListener('change', function(e) {
-                        const generationsSelect = document.getElementById('generations');
+                    treeTypeSelect.addEventListener("change", function (e) {
+                        const generationsSelect =
+                            document.getElementById("generations");
                         const treeType = e.target.value;
 
-                        if (treeType === 'descendant') {
+                        if (treeType === "descendant") {
                             // For descendant trees, limit to 3-4 generations with 4 as default
                             generationsSelect.innerHTML = `
                                 <option value="4" selected>4 Generations</option>
@@ -595,9 +730,9 @@
                                 <option value="4">4 Generations</option>
                             `;
                         }
-                        
+
                         // Update price display after changing generations
-                        if (typeof updatePriceDisplay === 'function') {
+                        if (typeof updatePriceDisplay === "function") {
                             setTimeout(updatePriceDisplay, 50);
                         }
                     });
@@ -686,49 +821,60 @@
             // Theme selection functionality
             function selectTheme(themeName) {
                 // Remove selected class from all theme selectors
-                document.querySelectorAll('.theme-selector').forEach(selector => {
-                    selector.classList.remove('selected');
-                });
-                
+                document
+                    .querySelectorAll(".theme-selector")
+                    .forEach((selector) => {
+                        selector.classList.remove("selected");
+                    });
+
                 // Remove selected class from all theme previews
-                document.querySelectorAll('.theme-preview').forEach(preview => {
-                    preview.classList.remove('selected');
-                });
-                
+                document
+                    .querySelectorAll(".theme-preview")
+                    .forEach((preview) => {
+                        preview.classList.remove("selected");
+                    });
+
                 // Add selected class to clicked theme
-                const selectedSelector = document.querySelector(`[data-theme="${themeName}"]`);
-                const selectedPreview = document.getElementById(`preview-${themeName}`);
-                
+                const selectedSelector = document.querySelector(
+                    `[data-theme="${themeName}"]`,
+                );
+                const selectedPreview = document.getElementById(
+                    `preview-${themeName}`,
+                );
+
                 if (selectedSelector) {
-                    selectedSelector.classList.add('selected');
+                    selectedSelector.classList.add("selected");
                 }
                 if (selectedPreview) {
-                    selectedPreview.classList.add('selected');
+                    selectedPreview.classList.add("selected");
                 }
-                
+
                 // Update hidden input value
-                document.getElementById('selectedTheme').value = themeName;
+                document.getElementById("selectedTheme").value = themeName;
             }
 
             // Initialize default theme selection
-            document.addEventListener('DOMContentLoaded', function() {
-                selectTheme('royal-heritage');
+            document.addEventListener("DOMContentLoaded", function () {
+                selectTheme("royal-heritage");
             });
 
             // Switch User functionality
             function switchUser() {
                 // Clear all FamilySearch authentication data
-                document.cookie = "fs_access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-                document.cookie = "fs_refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-                document.cookie = "oauth_state=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-                
+                document.cookie =
+                    "fs_access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                document.cookie =
+                    "fs_refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                document.cookie =
+                    "oauth_state=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
                 // Clear localStorage and sessionStorage
                 localStorage.clear();
                 sessionStorage.clear();
-                
+
                 // Clear global access token
                 window.accessToken = null;
-                
+
                 // Add a timestamp parameter to force fresh authentication
                 const timestamp = new Date().getTime();
                 window.location.href = `familysearch.html?switch_user=true&t=${timestamp}`;

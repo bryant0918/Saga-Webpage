@@ -1,384 +1,751 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" data-bs-theme="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Family Saga - GEDCOM Upload</title>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Family Saga - GEDCOM Upload</title>
 
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <!-- Bootstrap CSS -->
+        <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+        />
 
-    <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <!-- Font Awesome Icons -->
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
 
-    <!-- Google Fonts - Scandinavian Typography -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+        <!-- Google Fonts - Scandinavian Typography -->
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400&display=swap"
+            rel="stylesheet"
+        />
 
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="custom.css">
+        <!-- Custom CSS -->
+        <link rel="stylesheet" href="custom.css" />
 
-    <meta name="description" content="Upload your GEDCOM file to create your luxury family tree chart.">
-    <link rel="icon" type="image/png" href="assets/saga.png">
-</head>
-<body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark shadow-sm" style="background-color: var(--primary-black);">
-        <div class="container">
-            <a class="navbar-brand fw-bold d-flex align-items-center" href="index.html" style="color: var(--gold-primary);">
-                <img src="assets/saga.png" alt="Family Saga" style="height: 40px; width: auto; margin-right: 10px; border-radius: 50%;">
-                Family Saga
-            </a>
-            <div class="ms-auto">
-                <a href="index.html" class="btn btn-outline-light btn-sm">
-                    <i class="fas fa-arrow-left me-2"></i>Back to Home
+        <meta
+            name="description"
+            content="Upload your GEDCOM file to create your luxury family tree chart."
+        />
+        <link rel="icon" type="image/png" href="assets/saga.png" />
+    </head>
+    <body>
+        <!-- Navigation -->
+        <nav
+            class="navbar navbar-expand-lg navbar-dark shadow-sm"
+            style="background-color: var(--primary-black)"
+        >
+            <div class="container">
+                <a
+                    class="navbar-brand fw-bold d-flex align-items-center"
+                    href="index.html"
+                    style="color: var(--gold-primary)"
+                >
+                    <img
+                        src="assets/saga.png"
+                        alt="Family Saga"
+                        style="
+                            height: 40px;
+                            width: auto;
+                            margin-right: 10px;
+                            border-radius: 50%;
+                        "
+                    />
+                    Family Saga
                 </a>
-            </div>
-        </div>
-    </nav>
-
-    <div class="container py-5">
-        <div class="row justify-content-center">
-            <div class="col-lg-8">
-                <div class="text-center mb-5">
-                    <h1 class="display-4 fw-bold mb-4" style="color: var(--gold-primary);">Upload Your GEDCOM File</h1>
-                    <p class="lead" style="color: var(--text-gray);">
-                        Create beautiful luxury family trees from your GEDCOM files with sophisticated black and gold design
-                    </p>
+                <div class="ms-auto">
+                    <a href="index.html" class="btn btn-outline-light btn-sm">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Home
+                    </a>
                 </div>
+            </div>
+        </nav>
 
-                <!-- GEDCOM Info Card -->
-                <div class="card mb-4">
-                    <div class="card-body p-4">
-                        <h4 class="mb-3" style="color: var(--gold-primary);">
-                            <i class="fas fa-info-circle me-2"></i>About GEDCOM Files
-                        </h4>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <h6 style="color: var(--gold-primary);">What is a GEDCOM file?</h6>
-                                <p class="mb-0" style="color: var(--text-gray); font-size: 0.9rem;">
-                                    GEDCOM (GEnealogical Data COMmunication) is a standard file format for sharing family tree data between different genealogy software programs.
+        <div class="container py-5">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="text-center mb-5">
+                        <h1
+                            class="display-4 fw-bold mb-4"
+                            style="color: var(--gold-primary)"
+                        >
+                            Upload Your GEDCOM File
+                        </h1>
+                        <p class="lead" style="color: var(--text-gray)">
+                            Create beautiful luxury family trees from your
+                            GEDCOM files with sophisticated black and gold
+                            design
+                        </p>
+                    </div>
+
+                    <!-- GEDCOM Info Card -->
+                    <div class="card mb-4">
+                        <div class="card-body p-4">
+                            <h4 class="mb-3" style="color: var(--gold-primary)">
+                                <i class="fas fa-info-circle me-2"></i>About
+                                GEDCOM Files
+                            </h4>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <h6 style="color: var(--gold-primary)">
+                                        What is a GEDCOM file?
+                                    </h6>
+                                    <p
+                                        class="mb-0"
+                                        style="
+                                            color: var(--text-gray);
+                                            font-size: 0.9rem;
+                                        "
+                                    >
+                                        GEDCOM (GEnealogical Data COMmunication)
+                                        is a standard file format for sharing
+                                        family tree data between different
+                                        genealogy software programs.
+                                    </p>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <h6 style="color: var(--gold-primary)">
+                                        How to export from Ancestry.com:
+                                    </h6>
+                                    <p
+                                        class="mb-0"
+                                        style="
+                                            color: var(--text-gray);
+                                            font-size: 0.9rem;
+                                        "
+                                    >
+                                        Navigate to tree → Tree settings →
+                                        Export tree → Export
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- GEDCOM Upload Form -->
+                    <div class="card">
+                        <div class="card-body p-5">
+                            <form id="treeForm" enctype="multipart/form-data">
+                                <h3
+                                    class="mb-4"
+                                    style="
+                                        color: var(--gold-primary);
+                                        font-size: 1.3rem;
+                                    "
+                                >
+                                    Your Contact Info
+                                </h3>
+
+                                <div class="mb-3">
+                                    <label for="contactName" class="form-label">
+                                        Your Name
+                                        <span style="color: #dc3545">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="contactName"
+                                        name="contact_name"
+                                        placeholder="Enter your full name"
+                                        required
+                                    />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label
+                                        for="contactEmail"
+                                        class="form-label"
+                                    >
+                                        Your Email
+                                        <span style="color: #dc3545">*</span>
+                                    </label>
+                                    <input
+                                        type="email"
+                                        class="form-control"
+                                        id="contactEmail"
+                                        name="contact_email"
+                                        placeholder="Enter your email address"
+                                        required
+                                    />
+                                </div>
+
+                                <div class="mb-4">
+                                    <label for="contactPhone" class="form-label"
+                                        >Your Phone Number</label
+                                    >
+                                    <input
+                                        type="tel"
+                                        class="form-control"
+                                        id="contactPhone"
+                                        name="contact_phone"
+                                        placeholder="Enter your phone number (optional)"
+                                        required
+                                    />
+                                </div>
+
+                                <h3
+                                    class="mb-4"
+                                    style="
+                                        color: var(--gold-primary);
+                                        font-size: 1.3rem;
+                                    "
+                                >
+                                    Tree Configuration
+                                </h3>
+
+                                <div class="mb-3">
+                                    <label for="gedcomFile" class="form-label">
+                                        Upload GEDCOM File
+                                        <span style="color: #dc3545">*</span>
+                                    </label>
+                                    <div class="position-relative">
+                                        <input
+                                            type="file"
+                                            class="form-control"
+                                            id="gedcomFile"
+                                            name="gedcom_file"
+                                            accept=".ged,.gedcom"
+                                            style="display: none"
+                                        />
+                                        <div
+                                            class="file-input-display border rounded p-3 text-center"
+                                            style="
+                                                cursor: pointer;
+                                                border-color: var(
+                                                    --light-black
+                                                ) !important;
+                                                background-color: var(
+                                                    --primary-black
+                                                );
+                                            "
+                                        >
+                                            <i
+                                                class="fas fa-cloud-upload-alt fa-2x mb-2"
+                                                style="
+                                                    color: var(--gold-primary);
+                                                "
+                                            ></i>
+                                            <div
+                                                class="file-text"
+                                                style="color: var(--text-gray)"
+                                            >
+                                                <strong
+                                                    >Click to choose GEDCOM
+                                                    file</strong
+                                                ><br />
+                                                <small
+                                                    >or drag and drop your .ged
+                                                    file here</small
+                                                >
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="form-text">
+                                        Supported formats: .ged, .gedcom files
+                                        from Ancestry.
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="familyName" class="form-label">
+                                        Family Name
+                                        <span style="color: #dc3545">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="familyName"
+                                        name="title"
+                                        placeholder="Enter your family name"
+                                        required
+                                    />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="treeType" class="form-label"
+                                        >Tree Type</label
+                                    >
+                                    <select
+                                        class="form-select"
+                                        id="treeType"
+                                        name="tree_type"
+                                    >
+                                        <option value="ancestor" selected>
+                                            Ancestor Tree
+                                        </option>
+                                        <option value="descendant">
+                                            Descendant Tree
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="generations" class="form-label"
+                                        >Number of Generations</label
+                                    >
+                                    <select
+                                        class="form-select"
+                                        id="generations"
+                                        name="generations"
+                                    >
+                                        <option value="5" selected>
+                                            5 Generations
+                                        </option>
+                                        <option value="4">4 Generations</option>
+                                        <!-- <option value="3">3 Generations</option> -->
+                                    </select>
+                                    <div class="form-text">
+                                        Choose how many generations to include
+                                        in your family tree
+                                    </div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label for="theme" class="form-label"
+                                        >Design Theme</label
+                                    >
+                                    <div class="row" id="themeSelection">
+                                        <div class="col-md-6 col-lg-3 mb-3">
+                                            <div
+                                                class="theme-selector"
+                                                data-theme="royal-heritage"
+                                                onclick="selectTheme('royal-heritage')"
+                                            >
+                                                <div class="text-center">
+                                                    <img
+                                                        src="assets/Eichelberger_black.jpg"
+                                                        alt="Royal Heritage"
+                                                        class="theme-preview mb-2"
+                                                        id="preview-royal-heritage"
+                                                    />
+                                                    <div>
+                                                        <strong
+                                                            style="
+                                                                color: var(
+                                                                    --gold-primary
+                                                                );
+                                                            "
+                                                            >Royal
+                                                            Heritage</strong
+                                                        ><br />
+                                                        <small
+                                                            style="
+                                                                color: var(
+                                                                    --text-gray
+                                                                );
+                                                            "
+                                                            >Luxury black &
+                                                            gold</small
+                                                        >
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 col-lg-3 mb-3">
+                                            <div
+                                                class="theme-selector"
+                                                data-theme="rustic-roots"
+                                                onclick="selectTheme('rustic-roots')"
+                                            >
+                                                <div class="text-center">
+                                                    <img
+                                                        src="assets/Eichelberger_rustic.jpg"
+                                                        alt="Rustic Roots"
+                                                        class="theme-preview mb-2"
+                                                        id="preview-rustic-roots"
+                                                    />
+                                                    <div>
+                                                        <strong
+                                                            style="
+                                                                color: var(
+                                                                    --gold-primary
+                                                                );
+                                                            "
+                                                            >Rustic
+                                                            Roots</strong
+                                                        ><br />
+                                                        <small
+                                                            style="
+                                                                color: var(
+                                                                    --text-gray
+                                                                );
+                                                            "
+                                                            >Aged parchment
+                                                            texture</small
+                                                        >
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 col-lg-3 mb-3">
+                                            <div
+                                                class="theme-selector"
+                                                data-theme="vintage-botanical"
+                                                onclick="selectTheme('vintage-botanical')"
+                                            >
+                                                <div class="text-center">
+                                                    <img
+                                                        src="assets/Eichelberger_green.jpg"
+                                                        alt="Vintage Botanical"
+                                                        class="theme-preview mb-2"
+                                                        id="preview-vintage-botanical"
+                                                    />
+                                                    <div>
+                                                        <strong
+                                                            style="
+                                                                color: var(
+                                                                    --gold-primary
+                                                                );
+                                                            "
+                                                            >Vintage
+                                                            Botanical</strong
+                                                        ><br />
+                                                        <small
+                                                            style="
+                                                                color: var(
+                                                                    --text-gray
+                                                                );
+                                                            "
+                                                            >Cream & forest
+                                                            green</small
+                                                        >
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 col-lg-3 mb-3">
+                                            <div
+                                                class="theme-selector"
+                                                data-theme="ancestral-stone"
+                                                onclick="selectTheme('ancestral-stone')"
+                                            >
+                                                <div class="text-center">
+                                                    <img
+                                                        src="assets/Eichelberger_stone.jpg"
+                                                        alt="Ancestral Stone"
+                                                        class="theme-preview mb-2"
+                                                        id="preview-ancestral-stone"
+                                                    />
+                                                    <div>
+                                                        <strong
+                                                            style="
+                                                                color: var(
+                                                                    --gold-primary
+                                                                );
+                                                            "
+                                                            >Ancestral
+                                                            Stone</strong
+                                                        ><br />
+                                                        <small
+                                                            style="
+                                                                color: var(
+                                                                    --text-gray
+                                                                );
+                                                            "
+                                                            >Dark marble &
+                                                            bronze</small
+                                                        >
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="hidden"
+                                        id="selectedTheme"
+                                        name="theme"
+                                        value="royal-heritage"
+                                    />
+                                    <div class="form-text">
+                                        Choose your preferred design theme for
+                                        the family tree
+                                    </div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label for="rootPointer" class="form-label"
+                                        >Root Person ID (Optional)</label
+                                    >
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="rootPointer"
+                                        name="root_pointer"
+                                        placeholder="e.g., @I1@ (leave blank for auto-detection)"
+                                    />
+                                    <div class="form-text">
+                                        If specified, this person will be used
+                                        as the starting point for the family
+                                        tree
+                                    </div>
+                                </div>
+
+                                <!-- Total Price Display -->
+                                <div id="totalPrice" class="mb-4">
+                                    <!-- Price will be calculated and displayed here -->
+                                </div>
+
+                                <div class="text-center">
+                                    <button
+                                        type="submit"
+                                        class="btn btn-nordic btn-lg"
+                                    >
+                                        <i class="fas fa-paper-plane me-2"></i>
+                                        Request Family Tree
+                                    </button>
+                                </div>
+                            </form>
+
+                            <!-- Note Box -->
+                            <div
+                                class="alert alert-info mt-4"
+                                style="
+                                    background: linear-gradient(
+                                        135deg,
+                                        #e0f2fe 0%,
+                                        #e1f5fe 100%
+                                    );
+                                    border-color: var(--gold-primary);
+                                    color: #0277bd;
+                                "
+                            >
+                                <div class="d-flex align-items-start">
+                                    <i
+                                        class="fas fa-info-circle me-3 mt-1"
+                                        style="color: var(--gold-primary)"
+                                    ></i>
+                                    <div>
+                                        <strong
+                                            style="color: var(--gold-primary)"
+                                            >Note:</strong
+                                        >
+                                        Please ensure all names, dates, and
+                                        pictures are up-to-date on ancestry.com
+                                        before downloading your gedcom file and
+                                        uploading here. Our tree can only be as
+                                        good as the data available in the
+                                        Ancestry gedcom.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div
+                                id="loadingIndicator"
+                                class="text-center py-4 d-none"
+                            >
+                                <div
+                                    class="spinner-border text-warning mb-3"
+                                    role="status"
+                                >
+                                    <span class="visually-hidden"
+                                        >Loading...</span
+                                    >
+                                </div>
+                                <p style="color: var(--text-gray)">
+                                    Submitting your family tree request...
+                                    Please wait.
                                 </p>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <h6 style="color: var(--gold-primary);">How to export from Ancestry.com:</h6>
-                                <p class="mb-0" style="color: var(--text-gray); font-size: 0.9rem;">
-                                    Navigate to tree → Tree settings → Export tree → Export
-                                </p>
+
+                            <div
+                                id="errorMessage"
+                                class="alert alert-danger d-none mt-4"
+                            ></div>
+
+                            <div
+                                id="successMessage"
+                                class="alert alert-success d-none mt-4"
+                            >
+                                <div class="text-center">
+                                    <i
+                                        class="fas fa-check-circle fa-2x mb-3"
+                                        style="color: var(--gold-primary)"
+                                    ></i>
+                                    <h4>✅ Request Submitted Successfully!</h4>
+                                    <p class="mb-0">
+                                        Thanks for submitting a family tree
+                                        request. We will contact you shortly to
+                                        deliver your completed family tree and
+                                        gather payment.
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <!-- GEDCOM Upload Form -->
-                <div class="card">
-                    <div class="card-body p-5">
-                        <form id="treeForm" enctype="multipart/form-data">
-                            <h3 class="mb-4" style="color: var(--gold-primary); font-size: 1.3rem;">Your Contact Info</h3>
-
-                            <div class="mb-3">
-                                <label for="contactName" class="form-label">
-                                    Your Name <span style="color: #dc3545;">*</span>
-                                </label>
-                                <input type="text" class="form-control" id="contactName" name="contact_name" placeholder="Enter your full name" required>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="contactEmail" class="form-label">
-                                    Your Email <span style="color: #dc3545;">*</span>
-                                </label>
-                                <input type="email" class="form-control" id="contactEmail" name="contact_email" placeholder="Enter your email address" required>
-                            </div>
-
-                            <div class="mb-4">
-                                <label for="contactPhone" class="form-label">Your Phone Number</label>
-                                <input type="tel" class="form-control" id="contactPhone" name="contact_phone" placeholder="Enter your phone number (optional)">
-                            </div>
-
-                            <h3 class="mb-4" style="color: var(--gold-primary); font-size: 1.3rem;">Tree Configuration</h3>
-
-                            <div class="mb-3">
-                                <label for="gedcomFile" class="form-label">
-                                    Upload GEDCOM File <span style="color: #dc3545;">*</span>
-                                </label>
-                                <div class="position-relative">
-                                    <input type="file" class="form-control" id="gedcomFile" name="gedcom_file" accept=".ged,.gedcom" style="display: none;">
-                                    <div class="file-input-display border rounded p-3 text-center" style="cursor: pointer; border-color: var(--light-black) !important; background-color: var(--primary-black);">
-                                        <i class="fas fa-cloud-upload-alt fa-2x mb-2" style="color: var(--gold-primary);"></i>
-                                        <div class="file-text" style="color: var(--text-gray);">
-                                            <strong>Click to choose GEDCOM file</strong><br>
-                                            <small>or drag and drop your .ged file here</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="form-text">Supported formats: .ged, .gedcom files from Ancestry.</div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="familyName" class="form-label">
-                                    Family Name <span style="color: #dc3545;">*</span>
-                                </label>
-                                <input type="text" class="form-control" id="familyName" name="title" placeholder="Enter your family name" required>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="treeType" class="form-label">Tree Type</label>
-                                <select class="form-select" id="treeType" name="tree_type">
-                                    <option value="ancestor" selected>Ancestor Tree</option>
-                                    <option value="descendant">Descendant Tree</option>
-                                </select>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="generations" class="form-label">Number of Generations</label>
-                                <select class="form-select" id="generations" name="generations">
-                                    <option value="5" selected>5 Generations</option>
-                                    <option value="4">4 Generations</option>
-                                    <!-- <option value="3">3 Generations</option> -->
-                                </select>
-                                <div class="form-text">Choose how many generations to include in your family tree</div>
-                            </div>
-
-                            <div class="mb-4">
-                                <label for="theme" class="form-label">Design Theme</label>
-                                <div class="row" id="themeSelection">
-                                    <div class="col-md-6 col-lg-3 mb-3">
-                                        <div class="theme-selector" data-theme="royal-heritage" onclick="selectTheme('royal-heritage')">
-                                            <div class="text-center">
-                                                <img src="assets/Eichelberger_black.jpg" alt="Royal Heritage" class="theme-preview mb-2" id="preview-royal-heritage">
-                                                <div>
-                                                    <strong style="color: var(--gold-primary);">Royal Heritage</strong><br>
-                                                    <small style="color: var(--text-gray);">Luxury black & gold</small>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 col-lg-3 mb-3">
-                                        <div class="theme-selector" data-theme="rustic-roots" onclick="selectTheme('rustic-roots')">
-                                            <div class="text-center">
-                                                <img src="assets/Eichelberger_rustic.jpg" alt="Rustic Roots" class="theme-preview mb-2" id="preview-rustic-roots">
-                                                <div>
-                                                    <strong style="color: var(--gold-primary);">Rustic Roots</strong><br>
-                                                    <small style="color: var(--text-gray);">Aged parchment texture</small>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 col-lg-3 mb-3">
-                                        <div class="theme-selector" data-theme="vintage-botanical" onclick="selectTheme('vintage-botanical')">
-                                            <div class="text-center">
-                                                <img src="assets/Eichelberger_green.jpg" alt="Vintage Botanical" class="theme-preview mb-2" id="preview-vintage-botanical">
-                                                <div>
-                                                    <strong style="color: var(--gold-primary);">Vintage Botanical</strong><br>
-                                                    <small style="color: var(--text-gray);">Cream & forest green</small>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 col-lg-3 mb-3">
-                                        <div class="theme-selector" data-theme="ancestral-stone" onclick="selectTheme('ancestral-stone')">
-                                            <div class="text-center">
-                                                <img src="assets/Eichelberger_stone.jpg" alt="Ancestral Stone" class="theme-preview mb-2" id="preview-ancestral-stone">
-                                                <div>
-                                                    <strong style="color: var(--gold-primary);">Ancestral Stone</strong><br>
-                                                    <small style="color: var(--text-gray);">Dark marble & bronze</small>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <input type="hidden" id="selectedTheme" name="theme" value="royal-heritage">
-                                <div class="form-text">Choose your preferred design theme for the family tree</div>
-                            </div>
-
-                            <div class="mb-4">
-                                <label for="rootPointer" class="form-label">Root Person ID (Optional)</label>
-                                <input type="text" class="form-control" id="rootPointer" name="root_pointer" placeholder="e.g., @I1@ (leave blank for auto-detection)">
-                                <div class="form-text">If specified, this person will be used as the starting point for the family tree</div>
-                            </div>
-
-                            <!-- Total Price Display -->
-                            <div id="totalPrice" class="mb-4">
-                                <!-- Price will be calculated and displayed here -->
-                            </div>
-
-                            <div class="text-center">
-                                <button type="submit" class="btn btn-nordic btn-lg">
-                                    <i class="fas fa-paper-plane me-2"></i>
-                                    Request Family Tree
-                                </button>
-                            </div>
-                        </form>
-
-                        <!-- Note Box -->
-                        <div class="alert alert-info mt-4" style="background: linear-gradient(135deg, #e0f2fe 0%, #e1f5fe 100%); border-color: var(--gold-primary); color: #0277bd;">
-                            <div class="d-flex align-items-start">
-                                <i class="fas fa-info-circle me-3 mt-1" style="color: var(--gold-primary);"></i>
-                                <div>
-                                    <strong style="color: var(--gold-primary);">Note:</strong> 
-                                    Please ensure all names, dates, and pictures are up-to-date on ancestry.com before downloading your gedcom file and uploading here. Our tree can only be as good as the data available in the Ancestry gedcom.
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="loadingIndicator" class="text-center py-4 d-none">
-                            <div class="spinner-border text-warning mb-3" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                            <p style="color: var(--text-gray);">Submitting your family tree request... Please wait.</p>
-                        </div>
-
-                        <div id="errorMessage" class="alert alert-danger d-none mt-4"></div>
-
-                        <div id="successMessage" class="alert alert-success d-none mt-4">
-                            <div class="text-center">
-                                <i class="fas fa-check-circle fa-2x mb-3" style="color: var(--gold-primary);"></i>
-                                <h4>✅ Request Submitted Successfully!</h4>
-                                <p class="mb-0">Thanks for submitting a family tree request. We will contact you shortly to deliver your completed family tree and gather payment.</p>
-                            </div>
-                        </div>
-                    </div>
+        <!-- Footer -->
+        <footer
+            class="py-4 text-center"
+            style="background-color: var(--deep-black); color: var(--text-gray)"
+        >
+            <div class="container">
+                <div
+                    class="d-flex align-items-center justify-content-center mb-2"
+                >
+                    <img
+                        src="assets/saga.png"
+                        alt="Family Saga"
+                        style="
+                            height: 25px;
+                            width: auto;
+                            margin-right: 8px;
+                            border-radius: 50%;
+                        "
+                    />
+                    <span style="color: var(--gold-primary); font-weight: 600"
+                        >Family Saga</span
+                    >
                 </div>
-
-
+                <p class="mb-0" style="font-size: 0.9rem">
+                    Crafting luxury family stories with sophisticated elegance.
+                </p>
             </div>
-        </div>
-    </div>
+        </footer>
 
-    <!-- Footer -->
-    <footer class="py-4 text-center" style="background-color: var(--deep-black); color: var(--text-gray);">
-        <div class="container">
-            <div class="d-flex align-items-center justify-content-center mb-2">
-                <img src="assets/saga.png" alt="Family Saga" style="height: 25px; width: auto; margin-right: 8px; border-radius: 50%;">
-                <span style="color: var(--gold-primary); font-weight: 600;">Family Saga</span>
-            </div>
-            <p class="mb-0" style="font-size: 0.9rem;">Crafting luxury family stories with sophisticated elegance.</p>
-        </div>
-    </footer>
+        <!-- Bootstrap JS -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <!-- Custom JS -->
+        <script src="price-calculator.js"></script>
+        <script src="script.js"></script>
+        <script>
+            // Enhanced file input functionality
+            document.addEventListener("DOMContentLoaded", function () {
+                const fileInput = document.getElementById("gedcomFile");
+                const fileDisplay = document.querySelector(
+                    ".file-input-display",
+                );
+                const fileText = document.querySelector(".file-text");
 
-    <!-- Custom JS -->
-    <script src="price-calculator.js"></script>
-    <script src="script.js"></script>
-    <script>
-        // Enhanced file input functionality
-        document.addEventListener('DOMContentLoaded', function() {
-            const fileInput = document.getElementById('gedcomFile');
-            const fileDisplay = document.querySelector('.file-input-display');
-            const fileText = document.querySelector('.file-text');
+                // Click to open file dialog
+                fileDisplay.addEventListener("click", function () {
+                    fileInput.click();
+                });
 
-            // Click to open file dialog
-            fileDisplay.addEventListener('click', function() {
-                fileInput.click();
-            });
-
-            // Handle file selection
-            fileInput.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    fileText.innerHTML = `
+                // Handle file selection
+                fileInput.addEventListener("change", function (e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        fileText.innerHTML = `
                         <strong style="color: var(--gold-primary);">${file.name}</strong><br>
                         <small style="color: var(--text-gray);">Size: ${(file.size / 1024).toFixed(2)} KB</small>
                     `;
-                    fileDisplay.style.borderColor = 'var(--gold-primary)';
-                    fileDisplay.style.backgroundColor = 'var(--light-black)';
-                } else {
-                    fileText.innerHTML = `
+                        fileDisplay.style.borderColor = "var(--gold-primary)";
+                        fileDisplay.style.backgroundColor =
+                            "var(--light-black)";
+                    } else {
+                        fileText.innerHTML = `
                         <strong>Click to choose GEDCOM file</strong><br>
                         <small>or drag and drop your .ged file here</small>
                     `;
-                    fileDisplay.style.borderColor = 'var(--light-black)';
-                    fileDisplay.style.backgroundColor = 'var(--primary-black)';
+                        fileDisplay.style.borderColor = "var(--light-black)";
+                        fileDisplay.style.backgroundColor =
+                            "var(--primary-black)";
+                    }
+                });
+
+                // Drag and drop functionality
+                fileDisplay.addEventListener("dragover", function (e) {
+                    e.preventDefault();
+                    fileDisplay.style.borderColor = "var(--gold-primary)";
+                    fileDisplay.style.backgroundColor = "var(--light-black)";
+                });
+
+                fileDisplay.addEventListener("dragleave", function (e) {
+                    e.preventDefault();
+                    if (!fileInput.files[0]) {
+                        fileDisplay.style.borderColor = "var(--light-black)";
+                        fileDisplay.style.backgroundColor =
+                            "var(--primary-black)";
+                    }
+                });
+
+                fileDisplay.addEventListener("drop", function (e) {
+                    e.preventDefault();
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        fileInput.files = files;
+                        fileInput.dispatchEvent(new Event("change"));
+                    }
+                });
+            });
+
+            // Theme selection functionality
+            function selectTheme(themeName) {
+                // Remove selected class from all theme selectors
+                document
+                    .querySelectorAll(".theme-selector")
+                    .forEach((selector) => {
+                        selector.classList.remove("selected");
+                    });
+
+                // Remove selected class from all theme previews
+                document
+                    .querySelectorAll(".theme-preview")
+                    .forEach((preview) => {
+                        preview.classList.remove("selected");
+                    });
+
+                // Add selected class to clicked theme
+                const selectedSelector = document.querySelector(
+                    `[data-theme="${themeName}"]`,
+                );
+                const selectedPreview = document.getElementById(
+                    `preview-${themeName}`,
+                );
+
+                if (selectedSelector) {
+                    selectedSelector.classList.add("selected");
                 }
-            });
-
-            // Drag and drop functionality
-            fileDisplay.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                fileDisplay.style.borderColor = 'var(--gold-primary)';
-                fileDisplay.style.backgroundColor = 'var(--light-black)';
-            });
-
-            fileDisplay.addEventListener('dragleave', function(e) {
-                e.preventDefault();
-                if (!fileInput.files[0]) {
-                    fileDisplay.style.borderColor = 'var(--light-black)';
-                    fileDisplay.style.backgroundColor = 'var(--primary-black)';
+                if (selectedPreview) {
+                    selectedPreview.classList.add("selected");
                 }
-            });
 
-            fileDisplay.addEventListener('drop', function(e) {
-                e.preventDefault();
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    fileInput.files = files;
-                    fileInput.dispatchEvent(new Event('change'));
-                }
-            });
-        });
-
-        // Theme selection functionality
-        function selectTheme(themeName) {
-            // Remove selected class from all theme selectors
-            document.querySelectorAll('.theme-selector').forEach(selector => {
-                selector.classList.remove('selected');
-            });
-            
-            // Remove selected class from all theme previews
-            document.querySelectorAll('.theme-preview').forEach(preview => {
-                preview.classList.remove('selected');
-            });
-            
-            // Add selected class to clicked theme
-            const selectedSelector = document.querySelector(`[data-theme="${themeName}"]`);
-            const selectedPreview = document.getElementById(`preview-${themeName}`);
-            
-            if (selectedSelector) {
-                selectedSelector.classList.add('selected');
+                // Update hidden input value
+                document.getElementById("selectedTheme").value = themeName;
             }
-            if (selectedPreview) {
-                selectedPreview.classList.add('selected');
-            }
-            
-            // Update hidden input value
-            document.getElementById('selectedTheme').value = themeName;
-        }
 
-        // Initialize default theme selection
-        document.addEventListener('DOMContentLoaded', function() {
-            selectTheme('royal-heritage');
-        });
+            // Initialize default theme selection
+            document.addEventListener("DOMContentLoaded", function () {
+                selectTheme("royal-heritage");
+            });
 
-        // Handle tree type changes to update generations options
-        document.addEventListener('DOMContentLoaded', function() {
-            const treeTypeSelect = document.getElementById('treeType');
-            if (treeTypeSelect) {
-                treeTypeSelect.addEventListener('change', function(e) {
-                    const generationsSelect = document.getElementById('generations');
-                    const treeType = e.target.value;
+            // Handle tree type changes to update generations options
+            document.addEventListener("DOMContentLoaded", function () {
+                const treeTypeSelect = document.getElementById("treeType");
+                if (treeTypeSelect) {
+                    treeTypeSelect.addEventListener("change", function (e) {
+                        const generationsSelect =
+                            document.getElementById("generations");
+                        const treeType = e.target.value;
 
-                    if (treeType === 'descendant') {
-                        // For descendant trees, limit to 3-4 generations with 4 as default
-                        generationsSelect.innerHTML = `
+                        if (treeType === "descendant") {
+                            // For descendant trees, limit to 3-4 generations with 4 as default
+                            generationsSelect.innerHTML = `
                             <option value="4" selected>4 Generations</option>
                             <option value="3">3 Generations</option>
                         `;
-                    } else {
-                        // For ancestor trees, show 4 or 5 with 5 as default
-                        generationsSelect.innerHTML = `
+                        } else {
+                            // For ancestor trees, show 4 or 5 with 5 as default
+                            generationsSelect.innerHTML = `
                             <option value="5" selected>5 Generations</option>
                             <option value="4">4 Generations</option>
                         `;
-                    }
-                    
-                    // Update price display after changing generations
-                    if (typeof updatePriceDisplay === 'function') {
-                        setTimeout(updatePriceDisplay, 50);
-                    }
-                });
-            }
-        });
-    </script>
-</body>
+                        }
+
+                        // Update price display after changing generations
+                        if (typeof updatePriceDisplay === "function") {
+                            setTimeout(updatePriceDisplay, 50);
+                        }
+                    });
+                }
+            });
+        </script>
+    </body>
 </html>
