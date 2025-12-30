@@ -215,3 +215,5 @@ images/*
 trees/*
 
 node_modules/
+
+.vscode/
