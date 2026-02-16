@@ -26,6 +26,9 @@
         <!-- Custom CSS -->
         <link rel="stylesheet" href="custom.css" />
 
+        <!-- Stripe Buy Button -->
+        <script async src="https://js.stripe.com/v3/buy-button.js"></script>
+
         <meta
             name="description"
             content="Configure your FamilySearch family tree to create your luxury family chart."
@@ -441,14 +444,9 @@
                                     <!-- Price will be calculated and displayed here -->
                                 </div>
 
-                                <div class="text-center">
-                                    <button
-                                        type="submit"
-                                        class="btn btn-nordic btn-lg"
-                                    >
-                                        <i class="fas fa-paper-plane me-2"></i>
-                                        Submit Tree Request
-                                    </button>
+                                <!-- Stripe Buy Button Container -->
+                                <div id="stripeBuyButton" class="text-center mb-3">
+                                    <!-- Stripe buy button will be inserted here dynamically -->
                                 </div>
                             </form>
 
@@ -521,8 +519,7 @@
                                     <p class="mb-0">
                                         Thanks for submitting a family tree
                                         request. We will be in contact with you
-                                        shortly with your completed family tree
-                                        and to gather payment.
+                                        shortly with your completed family tree.
                                     </p>
                                 </div>
                             </div>

@@ -3,6 +3,8 @@ import socketserver
 
 PORT = 5000
 
+socketserver.TCPServer.allow_reuse_address = True
+
 class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
