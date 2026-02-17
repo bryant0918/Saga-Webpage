@@ -89,8 +89,8 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
         // Re-fetch session with expanded discount breakdown so we can show coupon details.
         const expandedSession = await stripe.checkout.sessions.retrieve(session.id, {
           expand: [
-            'total_details.breakdown.discounts.discount.coupon',
-            'total_details.breakdown.discounts.discount.promotion_code',
+            // Stripe max expansion depth is 4; expanding coupon/promotion_code here exceeds that.
+            'total_details.breakdown.discounts.discount',
           ],
         });
 
@@ -124,15 +124,21 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
           const coupon = discountObj.coupon && typeof discountObj.coupon === 'object'
             ? discountObj.coupon
             : null;
-          const promotionCode = discountObj.promotion_code && typeof discountObj.promotion_code === 'object'
+          const couponId = coupon
+            ? coupon.id
+            : (typeof discountObj.coupon === 'string' ? discountObj.coupon : null);
+          const promotionCodeObj = discountObj.promotion_code && typeof discountObj.promotion_code === 'object'
             ? discountObj.promotion_code
             : null;
+          const promotionCodeValue = promotionCodeObj
+            ? (promotionCodeObj.code || promotionCodeObj.id || null)
+            : (typeof discountObj.promotion_code === 'string' ? discountObj.promotion_code : null);
 
           return {
             amount: entry.amount || 0,
-            couponId: coupon ? coupon.id : null,
+            couponId: couponId,
             couponName: coupon ? (coupon.name || null) : null,
-            promotionCode: promotionCode ? (promotionCode.code || null) : null,
+            promotionCode: promotionCodeValue,
           };
         }).filter((item) => item.couponId || item.promotionCode || item.amount > 0);
         
