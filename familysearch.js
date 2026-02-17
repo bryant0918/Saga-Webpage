@@ -208,6 +208,27 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
+        // CRITICAL: Verify payment before submission
+        const requestId = window.stripePayment.requestId;
+        if (!requestId) {
+            showError("Payment verification failed: No request ID found. Please refresh and try again.");
+            return;
+        }
+
+        // Check payment status one final time before submission
+        try {
+            const paymentStatus = await window.stripePaymentFunctions.pollPaymentStatus(requestId);
+            if (!paymentStatus.paid) {
+                showError("Payment not confirmed. Please complete payment before submitting.");
+                return;
+            }
+            console.log("Payment verified before submission:", paymentStatus);
+        } catch (error) {
+            showError("Payment verification failed. Please try again or contact support.");
+            console.error("Payment verification error:", error);
+            return;
+        }
+
         showLoading();
 
         try {
@@ -218,7 +239,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 ? currentPerson.name
                 : "Unknown";
 
-            // Submit to GetForm
+            // Submit to GetForm with request_id for tracking
             const formData = new FormData();
             formData.append("contact_name", contactName);
             formData.append("contact_email", contactEmail);
@@ -236,6 +257,8 @@ document.addEventListener("DOMContentLoaded", function () {
             formData.append("submission_time", new Date().toLocaleString());
             formData.append("theme", theme);
             formData.append("access_token", currentAccessToken);
+            formData.append("request_id", requestId); // Link to payment
+            formData.append("payment_verified", "true");
 
             const getform_response = await fetch(
                 "https://getform.io/f/bdrgewgb",

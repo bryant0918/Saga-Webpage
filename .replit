@@ -4,8 +4,36 @@ modules = ["web", "nodejs-20"]
 channel = "stable-25_05"
 
 [deployment]
-deploymentTarget = "static"
-publicDir = "."
+run = ["sh", "-c", "npm start"]
+deploymentTarget = "autoscale"
+
+[[ports]]
+localPort = 3000
+externalPort = 80
 
 [agent]
 expertMode = true
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start Node Server"
+
+[[workflows.workflow]]
+name = "Start Node Server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node server.js"
+waitForPort = 3000
+
+[workflows.workflow.metadata]
+outputType = "webview"
