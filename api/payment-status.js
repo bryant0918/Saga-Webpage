@@ -59,6 +59,8 @@ router.get('/', async (req, res) => {
       timestamp: paymentData.timestamp,
       sessionId: paymentData.sessionId,
       customerEmail: paymentData.customerEmail,
+      priceId: paymentData.priceId || null,
+      productKey: paymentData.productKey || null,
     });
 
   } catch (error) {

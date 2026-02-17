@@ -4,6 +4,7 @@
 const express = require('express');
 const router = express.Router();
 const Stripe = require('stripe');
+const { PRICE_MAP } = require('./stripe-pricing');
 
 // Initialize Stripe with secret key from environment
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -11,24 +12,16 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 // JSON body parser for this route
 router.use(express.json());
 
-// Helper function to calculate price (matching frontend price-calculator.js)
-function calculateTreePrice(treeType, generations) {
-  let basePrice = 0;
-  let additionalCost = 0;
-  
-  if (treeType === 'ancestor') {
-    basePrice = 149; // Base price for 4 generations
-    if (generations === 5 || generations === '5') {
-      additionalCost = 49; // +$49 for 5th generation
-    }
-  } else if (treeType === 'descendant') {
-    basePrice = 169; // Base price for 3 generations
-    if (generations === 4 || generations === '4') {
-      additionalCost = 49; // +$49 for 4th generation
-    }
-  }
-  
-  return basePrice + additionalCost;
+const PRICE_AMOUNT_MAP = {
+  ancestry_4: 149,
+  ancestry_5: 198,
+  descendant_3: 169,
+  descendant_4: 218,
+};
+
+function getProductKey(treeType, generations) {
+  const normalizedTreeType = treeType === 'ancestor' ? 'ancestry' : treeType;
+  return `${normalizedTreeType}_${generations}`;
 }
 
 // POST /api/create-payment-session
@@ -61,9 +54,15 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Contact information is required' });
     }
 
-    // Calculate price
-    const priceInDollars = calculateTreePrice(treeType, generations);
-    const priceInCents = priceInDollars * 100; // Stripe uses cents
+    const productKey = getProductKey(treeType, generations);
+    const priceId = PRICE_MAP[productKey];
+    const priceInDollars = PRICE_AMOUNT_MAP[productKey];
+
+    if (!priceId || !priceInDollars) {
+      return res.status(400).json({
+        error: `Unsupported product selection: treeType=${treeType}, generations=${generations}`
+      });
+    }
 
     // Get the base URL for success/cancel redirects.
     // Priority:
@@ -77,20 +76,7 @@ router.post('/', async (req, res) => {
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: `Family Saga - ${familyName || 'Custom'} Family Tree`,
-              description: `${treeType === 'ancestor' ? 'Ancestry' : 'Descendancy'} Tree - ${generations} Generations (${theme || 'Royal Heritage'} theme)`,
-              images: ['https://family-saga.vercel.app/assets/saga.png'], // Update with your actual domain
-            },
-            unit_amount: priceInCents,
-          },
-          quantity: 1,
-        },
-      ],
+      line_items: [{ price: priceId, quantity: 1 }],
       mode: 'payment',
       allow_promotion_codes: true, // ✅ Enable promo code input field
       success_url: `${baseUrl}/familysearch-config.html?payment=success&request_id=${requestId}`,
@@ -107,6 +93,8 @@ router.post('/', async (req, res) => {
         family_name: familyName || 'Unknown',
         tree_type: treeType,
         generations: generations.toString(),
+        product_key: productKey,
+        price_id: priceId,
         theme: theme || 'royal-heritage',
         submission_time: new Date().toISOString(),
       },
@@ -117,6 +105,7 @@ router.post('/', async (req, res) => {
       sessionUrl: session.url,
       sessionId: session.id,
       requestId: requestId,
+      priceId: priceId,
       amount: priceInDollars,
     });
 

@@ -5,9 +5,14 @@ const express = require('express');
 const router = express.Router();
 const Stripe = require('stripe');
 const Redis = require('ioredis');
+const { PRICE_MAP } = require('./stripe-pricing');
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+const PRODUCT_BY_PRICE_ID = Object.fromEntries(
+  Object.entries(PRICE_MAP).map(([productKey, priceId]) => [priceId, productKey])
+);
 
 // Initialize Redis connection
 let redis;
@@ -66,6 +71,7 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
   try {
     switch (event.type) {
       case 'checkout.session.completed':
+        {
         const session = event.data.object;
         
         console.log('Checkout session completed:', session.id);
@@ -79,6 +85,15 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
           console.error('No request_id found in session metadata');
           return res.status(400).json({ error: 'Missing request_id in metadata' });
         }
+
+        // Look up line items from Stripe so we can reliably identify the purchased price.
+        const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
+          limit: 1,
+          expand: ['data.price'],
+        });
+        const firstLineItem = lineItems.data[0];
+        const priceId = firstLineItem && firstLineItem.price ? firstLineItem.price.id : null;
+        const productKey = priceId ? PRODUCT_BY_PRICE_ID[priceId] : null;
         
         // Prepare payment data to store
         const paymentData = {
@@ -88,6 +103,8 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
           currency: session.currency,
           customerEmail: session.customer_email || session.metadata.contact_email,
           paymentStatus: session.payment_status,
+          priceId: priceId,
+          productKey: productKey || session.metadata.product_key || null,
           timestamp: Date.now(),
           metadata: session.metadata,
         };
@@ -97,12 +114,15 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
         
         console.log(`Payment confirmed for request ${requestId}`);
         break;
+        }
         
       case 'checkout.session.expired':
+        {
         const expiredSession = event.data.object;
         console.log('Checkout session expired:', expiredSession.id);
         // Optionally handle expired sessions
         break;
+        }
         
       default:
         console.log(`Unhandled event type: ${event.type}`);
