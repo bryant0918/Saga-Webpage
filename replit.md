@@ -4,7 +4,7 @@
 
 Family Saga is a static frontend web application that generates custom family tree charts. Users can either connect their FamilySearch account via OAuth 2 or upload a GEDCOM file to create beautifully designed family tree PDFs. The app features a luxury black-and-gold Scandinavian design aesthetic and monetizes through Stripe payment integration.
 
-The application is primarily a static site served by a simple Python HTTP server, with client-side JavaScript handling FamilySearch OAuth authentication, tree data fetching, and GEDCOM file processing.
+The application is primarily a static site served by a simple server, with client-side JavaScript handling FamilySearch OAuth authentication, tree data fetching, and GEDCOM file processing.
 
 ## User Preferences
 
@@ -38,11 +38,6 @@ Preferred communication style: Simple, everyday language.
 - Production environment pointing to `ident.familysearch.org` and `api.familysearch.org`
 - App key: `b00KBZ8PWGLG7SJ0A3U1`
 - Note: The SecurityPolicy.md mandates HttpOnly/Secure cookies, but the current client-side implementation uses `document.cookie` which cannot set HttpOnly. This is an area for improvement — moving token handling server-side would be needed for full compliance.
-
-### Backend / Server
-- `server.py` — A minimal Python `http.server` serving static files on port 5000 with no-cache headers
-- No database, no server-side API routes, no server-side rendering
-- All logic is client-side; the Python server just serves files
 
 ### Pricing & Payments
 - Two tree types: **Ancestor** (base $149) and **Descendant** (base $169)
@@ -80,10 +75,6 @@ Four visual themes mapped to backend values:
 - Font Awesome 6.4 (CSS from cdnjs)
 - Google Fonts (Inter, Playfair Display)
 - Stripe Buy Button JS (`js.stripe.com`)
-
-### Server Requirements
-- Python 3 (for `server.py` static file server)
-- Port 5000
 
 ### No Database
 - The application currently has no database. If one is needed in the future, consider the data that would need persisting: user sessions, order history, generated PDFs, etc.
