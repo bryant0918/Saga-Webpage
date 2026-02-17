@@ -175,6 +175,21 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     async function generateFamilyTree() {
+        return submitFamilyTreeRequest({
+            skipPaymentVerification: false,
+            redirectOnSuccess: true,
+            throwOnError: false,
+        });
+    }
+
+    async function submitFamilyTreeRequest(options = {}) {
+        const {
+            skipPaymentVerification = false,
+            paymentStatusData = null,
+            redirectOnSuccess = true,
+            throwOnError = false,
+        } = options;
+
         const contactName = document.getElementById("contactName").value.trim();
         const contactEmail = document
             .getElementById("contactEmail")
@@ -214,22 +229,35 @@ document.addEventListener("DOMContentLoaded", function () {
         // CRITICAL: Verify payment before submission
         const requestId = window.stripePayment.requestId;
         if (!requestId) {
-            showError("Payment verification failed: No request ID found. Please refresh and try again.");
-            return;
+            const missingRequestIdError = new Error(
+                "Payment verification failed: No request ID found. Please refresh and try again.",
+            );
+            showError(missingRequestIdError.message);
+            if (throwOnError) throw missingRequestIdError;
+            return null;
         }
 
+        let paymentStatus = paymentStatusData;
+
         // Check payment status one final time before submission
-        try {
-            const paymentStatus = await window.stripePaymentFunctions.pollPaymentStatus(requestId);
-            if (!paymentStatus.paid) {
-                showError("Payment not confirmed. Please complete payment before submitting.");
-                return;
+        if (!skipPaymentVerification) {
+            try {
+                paymentStatus = await window.stripePaymentFunctions.pollPaymentStatus(requestId);
+                if (!paymentStatus.paid) {
+                    const notPaidError = new Error(
+                        "Payment not confirmed. Please complete payment before submitting.",
+                    );
+                    showError(notPaidError.message);
+                    if (throwOnError) throw notPaidError;
+                    return null;
+                }
+                console.log("Payment verified before submission:", paymentStatus);
+            } catch (error) {
+                showError("Payment verification failed. Please try again or contact support.");
+                console.error("Payment verification error:", error);
+                if (throwOnError) throw error;
+                return null;
             }
-            console.log("Payment verified before submission:", paymentStatus);
-        } catch (error) {
-            showError("Payment verification failed. Please try again or contact support.");
-            console.error("Payment verification error:", error);
-            return;
         }
 
         showLoading();
@@ -301,7 +329,29 @@ document.addEventListener("DOMContentLoaded", function () {
                 );
             }
 
-            showRequestSubmitted();
+            const orderDetails = {
+                requestId: requestId,
+                amount: paymentStatus && paymentStatus.amount ? paymentStatus.amount : "",
+                currency: paymentStatus && paymentStatus.currency ? paymentStatus.currency : "",
+                priceId: paymentStatus && paymentStatus.priceId ? paymentStatus.priceId : "",
+                productKey: paymentStatus && paymentStatus.productKey ? paymentStatus.productKey : "",
+                customerEmail: paymentStatus && paymentStatus.customerEmail
+                    ? paymentStatus.customerEmail
+                    : contactEmail,
+                contactName: contactName,
+                familyName: familyName,
+                treeType: treeType,
+                generations: generations,
+                theme: selectedTheme,
+            };
+
+            if (redirectOnSuccess) {
+                redirectToOrderConfirmation(orderDetails);
+            } else {
+                showRequestSubmitted();
+            }
+
+            return orderDetails;
         } catch (error) {
             console.error("Error submitting family tree request:", error);
             if (error && error.message === "Failed to fetch") {
@@ -311,9 +361,21 @@ document.addEventListener("DOMContentLoaded", function () {
             } else {
                 showError(`Failed to submit request: ${error.message}`);
             }
+            if (throwOnError) throw error;
+            return null;
         } finally {
             hideLoading();
         }
+    }
+
+    function redirectToOrderConfirmation(orderDetails) {
+        const params = new URLSearchParams();
+        Object.entries(orderDetails).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+                params.set(key, String(value));
+            }
+        });
+        window.location.href = `order-confirmation.html?${params.toString()}`;
     }
 
     function showConfigSection() {
@@ -363,6 +425,16 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         if (errorMessage) errorMessage.classList.add("d-none");
     }
+
+    // Expose for post-payment auto-submit flow
+    window.submitFamilyTreeAfterPayment = async function (paymentStatusData) {
+        return submitFamilyTreeRequest({
+            skipPaymentVerification: true,
+            paymentStatusData: paymentStatusData,
+            redirectOnSuccess: true,
+            throwOnError: true,
+        });
+    };
 
     // Function to fetch current person data
     async function fetchCurrentPerson(accessToken) {

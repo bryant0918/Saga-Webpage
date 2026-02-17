@@ -7,6 +7,7 @@ window.stripePayment = {
   pollingInterval: null,
   maxPollingAttempts: 150, // 150 attempts * 2 seconds = 5 minutes max
   currentAttempt: 0,
+  isSubmittingOrder: false,
 };
 
 // Generate a unique request ID using UUID v4 format
@@ -155,6 +156,11 @@ function showPaymentCompleteUI() {
   const submitButton = document.querySelector('button[type="submit"]');
 
   if (paymentComplete) {
+    paymentComplete.innerHTML = `
+      <i class="fas fa-check-circle fa-2x mb-2" style="color: var(--gold-primary);"></i><br>
+      <strong>Payment Confirmed!</strong><br>
+      <small>Submitting your request automatically...</small>
+    `;
     paymentComplete.classList.remove('d-none');
   }
 
@@ -163,9 +169,9 @@ function showPaymentCompleteUI() {
   }
 
   if (submitButton) {
-    submitButton.disabled = false;
-    submitButton.classList.remove('d-none');
-    submitButton.style.display = 'block';
+    submitButton.disabled = true;
+    submitButton.classList.add('d-none');
+    submitButton.style.display = 'none';
   }
 }
 
@@ -250,9 +256,31 @@ function checkPaymentReturn() {
     window.stripePayment.requestId = requestId;
     
     // Start polling for payment confirmation
-    startPaymentPolling(requestId, (status) => {
+    startPaymentPolling(requestId, async (status) => {
       showPaymentCompleteUI();
-      console.log('Payment flow complete:', status);
+      console.log('Payment flow complete, starting auto-submit:', status);
+
+      if (window.stripePayment.isSubmittingOrder) {
+        return;
+      }
+
+      window.stripePayment.isSubmittingOrder = true;
+
+      try {
+        if (typeof window.submitFamilyTreeAfterPayment !== 'function') {
+          throw new Error('Submission handler not initialized. Please refresh and try again.');
+        }
+        await window.submitFamilyTreeAfterPayment(status);
+      } catch (error) {
+        console.error('Auto-submission failed after payment:', error);
+        const errorMessage = document.getElementById('errorMessage');
+        if (errorMessage) {
+          errorMessage.textContent = `Payment confirmed, but request submission failed: ${error.message}`;
+          errorMessage.classList.remove('d-none');
+        }
+      } finally {
+        window.stripePayment.isSubmittingOrder = false;
+      }
     });
 
     // Clean up URL
