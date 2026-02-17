@@ -346,8 +346,20 @@ document.addEventListener("DOMContentLoaded", function () {
             };
 
             if (redirectOnSuccess) {
+                if (
+                    window.stripePaymentFunctions &&
+                    typeof window.stripePaymentFunctions.clearPersistedCheckoutFormData === "function"
+                ) {
+                    window.stripePaymentFunctions.clearPersistedCheckoutFormData();
+                }
                 redirectToOrderConfirmation(orderDetails);
             } else {
+                if (
+                    window.stripePaymentFunctions &&
+                    typeof window.stripePaymentFunctions.clearPersistedCheckoutFormData === "function"
+                ) {
+                    window.stripePaymentFunctions.clearPersistedCheckoutFormData();
+                }
                 showRequestSubmitted();
             }
 

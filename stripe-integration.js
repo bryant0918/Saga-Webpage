@@ -2,6 +2,8 @@
 // Handles payment session creation, polling, and UI updates
 
 // Global state for payment tracking
+const CHECKOUT_FORM_STORAGE_KEY = 'familySagaCheckoutFormDataV1';
+
 window.stripePayment = {
   requestId: null,
   pollingInterval: null,
@@ -9,6 +11,63 @@ window.stripePayment = {
   currentAttempt: 0,
   isSubmittingOrder: false,
 };
+
+function persistCheckoutFormData(formData) {
+  try {
+    sessionStorage.setItem(CHECKOUT_FORM_STORAGE_KEY, JSON.stringify(formData));
+  } catch (error) {
+    console.warn('Unable to persist checkout form data:', error);
+  }
+}
+
+function getPersistedCheckoutFormData() {
+  try {
+    const raw = sessionStorage.getItem(CHECKOUT_FORM_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    console.warn('Unable to read persisted checkout form data:', error);
+    return null;
+  }
+}
+
+function clearPersistedCheckoutFormData() {
+  try {
+    sessionStorage.removeItem(CHECKOUT_FORM_STORAGE_KEY);
+  } catch (error) {
+    console.warn('Unable to clear persisted checkout form data:', error);
+  }
+}
+
+function restoreCheckoutFormDataToInputs() {
+  const formData = getPersistedCheckoutFormData();
+  if (!formData) {
+    return;
+  }
+
+  const setValue = (id, value) => {
+    const element = document.getElementById(id);
+    if (element && value !== undefined && value !== null) {
+      element.value = value;
+    }
+  };
+
+  setValue('contactName', formData.contact_name);
+  setValue('contactEmail', formData.contact_email);
+  setValue('contactPhone', formData.contact_phone);
+  setValue('startingPerson', formData.starting_person);
+  setValue('familyName', formData.title);
+  setValue('treeType', formData.tree_type);
+
+  const treeTypeEl = document.getElementById('treeType');
+  if (treeTypeEl) {
+    treeTypeEl.dispatchEvent(new Event('change'));
+  }
+
+  setValue('generations', formData.generations);
+  setValue('selectedTheme', formData.theme);
+
+  window.stripePayment.formData = formData;
+}
 
 // Generate a unique request ID using UUID v4 format
 function generateRequestId() {
@@ -212,6 +271,7 @@ async function handleProceedToPayment(event) {
 
     // Store form data for later submission
     window.stripePayment.formData = formData;
+    persistCheckoutFormData(formData);
 
     // Disable payment button
     const paymentButton = document.getElementById('proceedToPaymentBtn');
@@ -300,6 +360,9 @@ function checkPaymentReturn() {
 
 // Initialize payment integration on page load
 document.addEventListener('DOMContentLoaded', function() {
+  // Restore form values from pre-checkout state before payment-return handling.
+  restoreCheckoutFormDataToInputs();
+
   // Check if returning from payment
   checkPaymentReturn();
 
@@ -320,4 +383,6 @@ window.stripePaymentFunctions = {
   handleProceedToPayment,
   checkPaymentReturn,
   showPaymentCompleteUI,
+  getPersistedCheckoutFormData,
+  clearPersistedCheckoutFormData,
 };
