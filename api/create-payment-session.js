@@ -89,6 +89,7 @@ router.post('/', async (req, res) => {
         },
       ],
       mode: 'payment',
+      allow_promotion_codes: true, // ✅ Enable promo code input field
       success_url: `${baseUrl}/familysearch-config.html?payment=success&request_id=${requestId}`,
       cancel_url: `${baseUrl}/familysearch-config.html?payment=cancelled`,
       customer_email: contactEmail,
