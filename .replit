@@ -4,7 +4,7 @@ modules = ["web", "nodejs-20"]
 channel = "stable-25_05"
 
 [deployment]
-run = ["node", "server.js"]
+run = ["sh", "-c", "npm start"]
 deploymentTarget = "autoscale"
 
 [[ports]]
