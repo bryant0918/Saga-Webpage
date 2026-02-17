@@ -65,11 +65,14 @@ router.post('/', async (req, res) => {
     const priceInDollars = calculateTreePrice(treeType, generations);
     const priceInCents = priceInDollars * 100; // Stripe uses cents
 
-    // Get the base URL for success/cancel redirects
-    // For Replit, use the environment variables if available
-    const baseUrl = process.env.REPL_SLUG 
-      ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-      : (req.headers.origin || `https://${req.headers.host}`);
+    // Get the base URL for success/cancel redirects.
+    // Priority:
+    // 1) Explicit app URL env var (recommended for production)
+    // 2) Incoming request origin
+    // 3) Host header fallback
+    const configuredBaseUrl =
+      process.env.PUBLIC_BASE_URL || process.env.APP_URL || process.env.BASE_URL;
+    const baseUrl = configuredBaseUrl || req.headers.origin || `https://${req.headers.host}`;
 
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
