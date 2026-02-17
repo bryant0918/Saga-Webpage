@@ -189,6 +189,12 @@ document.addEventListener("DOMContentLoaded", function () {
             redirectOnSuccess = true,
             throwOnError = false,
         } = options;
+        const amountByProductKey = {
+            ancestry_4: 149,
+            ancestry_5: 198,
+            descendant_3: 169,
+            descendant_4: 218,
+        };
 
         const contactName = document.getElementById("contactName").value.trim();
         const contactEmail = document
@@ -331,7 +337,37 @@ document.addEventListener("DOMContentLoaded", function () {
 
             const orderDetails = {
                 requestId: requestId,
-                amount: paymentStatus && paymentStatus.amount ? paymentStatus.amount : "",
+                amount:
+                    paymentStatus && paymentStatus.amount != null
+                        ? paymentStatus.amount
+                        : (paymentStatus &&
+                              paymentStatus.productKey &&
+                              amountByProductKey[paymentStatus.productKey]) ||
+                          "",
+                amountSubtotal:
+                    paymentStatus && paymentStatus.amountSubtotal != null
+                        ? paymentStatus.amountSubtotal
+                        : "",
+                amountDiscount:
+                    paymentStatus && paymentStatus.amountDiscount != null
+                        ? paymentStatus.amountDiscount
+                        : "",
+                amountTotal:
+                    paymentStatus && paymentStatus.amountTotal != null
+                        ? paymentStatus.amountTotal
+                        : "",
+                amountPaid:
+                    paymentStatus && paymentStatus.amountPaid != null
+                        ? paymentStatus.amountPaid
+                        : "",
+                amountDue:
+                    paymentStatus && paymentStatus.amountDue != null
+                        ? paymentStatus.amountDue
+                        : "",
+                couponsUsed:
+                    paymentStatus && Array.isArray(paymentStatus.couponsUsed)
+                        ? JSON.stringify(paymentStatus.couponsUsed)
+                        : "[]",
                 currency: paymentStatus && paymentStatus.currency ? paymentStatus.currency : "",
                 priceId: paymentStatus && paymentStatus.priceId ? paymentStatus.priceId : "",
                 productKey: paymentStatus && paymentStatus.productKey ? paymentStatus.productKey : "",
