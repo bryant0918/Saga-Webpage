@@ -136,6 +136,8 @@ celerybeat.pid
 
 # Environments
 .env
+.env.local
+.env*.local
 .envrc
 .venv
 env/
@@ -215,5 +217,10 @@ images/*
 trees/*
 
 node_modules/
+package-lock.json
+yarn.lock
+
+# Vercel
+.vercel
 
 .vscode/
