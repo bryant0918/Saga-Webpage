@@ -119,7 +119,7 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
         const discounts = (expandedSession.total_details &&
           expandedSession.total_details.breakdown &&
           expandedSession.total_details.breakdown.discounts) || [];
-        const couponsUsed = discounts.map((entry) => {
+        const couponsUsedRaw = discounts.map((entry) => {
           const discountObj = entry.discount || {};
           const coupon = discountObj.coupon && typeof discountObj.coupon === 'object'
             ? discountObj.coupon
@@ -141,6 +141,44 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
             promotionCode: promotionCodeValue,
           };
         }).filter((item) => item.couponId || item.promotionCode || item.amount > 0);
+
+        // Enrich IDs into user-friendly labels where Stripe only returns object IDs.
+        const couponsUsed = await Promise.all(couponsUsedRaw.map(async (item) => {
+          let couponName = item.couponName;
+          let promotionCode = item.promotionCode;
+
+          if (!couponName && item.couponId && typeof item.couponId === 'string') {
+            try {
+              const coupon = await stripe.coupons.retrieve(item.couponId);
+              if (coupon && coupon.name) {
+                couponName = coupon.name;
+              }
+            } catch (error) {
+              console.warn(`Unable to enrich coupon ${item.couponId}:`, error.message);
+            }
+          }
+
+          if (
+            promotionCode &&
+            typeof promotionCode === 'string' &&
+            promotionCode.startsWith('promo_')
+          ) {
+            try {
+              const promo = await stripe.promotionCodes.retrieve(promotionCode);
+              if (promo && promo.code) {
+                promotionCode = promo.code;
+              }
+            } catch (error) {
+              console.warn(`Unable to enrich promotion code ${promotionCode}:`, error.message);
+            }
+          }
+
+          return {
+            ...item,
+            couponName,
+            promotionCode,
+          };
+        }));
         
         // Prepare payment data to store
         const paymentData = {

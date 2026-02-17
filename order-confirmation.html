@@ -103,7 +103,16 @@
       const couponsText = coupons.length
         ? coupons
             .map((coupon) => {
-              const code = coupon.promotionCode || coupon.couponName || coupon.couponId || 'Coupon';
+              const promotionCode =
+                typeof coupon.promotionCode === 'string' && !coupon.promotionCode.startsWith('promo_')
+                  ? coupon.promotionCode
+                  : '';
+              const couponName = coupon.couponName || '';
+              const couponId =
+                typeof coupon.couponId === 'string' && !coupon.couponId.startsWith('coupon_')
+                  ? coupon.couponId
+                  : '';
+              const code = couponName || promotionCode || couponId || 'Coupon';
               const discountAmount = coupon.amount != null ? Number(coupon.amount) : null;
               const formattedDiscount = discountAmount != null && !Number.isNaN(discountAmount)
                 ? ` (-$${discountAmount.toFixed(2)})`
