@@ -2,7 +2,7 @@
 
 ## Overview
 
-Family Saga is a static frontend web application that generates custom family tree charts. Users can either connect their FamilySearch account via OAuth 2 or upload a GEDCOM file to create beautifully designed family tree PDFs. The app features a luxury black-and-gold Scandinavian design aesthetic and monetizes through Stripe payment integration.
+Family Saga is a frontend web application that generates custom family tree charts. Users can either connect their FamilySearch account via OAuth 2 or upload a GEDCOM file to create beautifully designed family tree PDFs. The app features a luxury black-and-gold Scandinavian design aesthetic and monetizes through Stripe payment integration.
 
 The application is primarily a static site served by a simple server, with client-side JavaScript handling FamilySearch OAuth authentication, tree data fetching, and GEDCOM file processing.
 
@@ -11,7 +11,6 @@ The application is primarily a static site served by a simple server, with clien
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
-
 ### Frontend (Static HTML/CSS/JS)
 - **No frontend framework** — the app is built with plain HTML, CSS, and vanilla JavaScript
 - **Bootstrap 5.3** is used for layout, components, and responsive design (dark theme via `data-bs-theme="dark"`)
@@ -57,12 +56,6 @@ Four visual themes mapped to backend values:
 - `rustic-roots` → `rustic`
 - `vintage-botanical` → `green`
 - `ancestral-stone` → `stone`
-
-### Design Decisions
-- **Static site approach** was chosen for simplicity — no build step, no bundler, no framework overhead
-- **Client-side OAuth** keeps the architecture simple but limits security (tokens accessible to JS)
-- **No database** — all state is transient (cookies, form submissions)
-- If the app needs to grow (user accounts, order tracking, server-side token handling), a proper backend with a database would need to be added
 
 ## External Dependencies
 
