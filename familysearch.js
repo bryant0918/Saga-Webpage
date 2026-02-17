@@ -14,6 +14,9 @@ const FS_CONFIG = {
     API_BASE_URL: "https://api.familysearch.org",
 };
 
+const GETFORM_ENDPOINT = "https://getform.io/f/bdrgewgb";
+const TREE_BACKEND_BASE_URL = "https://family-trees-backend.replit.app";
+
 let pdfBlob = null;
 
 // Cookie utility functions
@@ -260,18 +263,19 @@ document.addEventListener("DOMContentLoaded", function () {
             formData.append("request_id", requestId); // Link to payment
             formData.append("payment_verified", "true");
 
-            const getform_response = await fetch(
-                "https://getform.io/f/bdrgewgb",
-                {
+            // Best-effort CRM/lead capture; do not block paid request submission.
+            try {
+                const getformResponse = await fetch(GETFORM_ENDPOINT, {
                     method: "POST",
                     body: formData,
-                },
-            );
-
-            if (!getform_response.ok) {
-                throw new Error(
-                    `Failed to submit request: ${getform_response.status}`,
-                );
+                });
+                if (!getformResponse.ok) {
+                    console.warn(
+                        `GetForm submission failed with status ${getformResponse.status}`,
+                    );
+                }
+            } catch (getformError) {
+                console.warn("GetForm submission skipped due to network error:", getformError);
             }
 
             // Only send access token to our backend
@@ -282,7 +286,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     : "/build_descendant_tree";
             console.log("Submitting to endpoint:", endpoint);
             const response = await fetch(
-                `https://family-trees-backend.replit.app${endpoint}`,
+                `${TREE_BACKEND_BASE_URL}${endpoint}`,
                 {
                     // const response = await fetch(`http://127.0.0.1:10000${endpoint}`, {
                     method: "POST",
@@ -300,7 +304,13 @@ document.addEventListener("DOMContentLoaded", function () {
             showRequestSubmitted();
         } catch (error) {
             console.error("Error submitting family tree request:", error);
-            showError(`Failed to submit request: ${error.message}`);
+            if (error && error.message === "Failed to fetch") {
+                showError(
+                    "Failed to reach the tree-processing server. This is usually caused by an extension/ad blocker, VPN/proxy, firewall, or DNS/network filtering on this device. Please allow access to family-trees-backend.replit.app and try again.",
+                );
+            } else {
+                showError(`Failed to submit request: ${error.message}`);
+            }
         } finally {
             hideLoading();
         }
