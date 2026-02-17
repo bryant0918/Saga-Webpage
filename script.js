@@ -1,5 +1,8 @@
 // script.js
 document.addEventListener("DOMContentLoaded", function () {
+    const GETFORM_ENDPOINT = "https://getform.io/f/bdrgewgb";
+    const TREE_BACKEND_BASE_URL = "https://family-trees-backend.replit.app";
+
     const form = document.getElementById("treeForm");
     const fileInput = document.getElementById("gedcomFile");
     const fileDisplay = document.querySelector(".file-input-display");
@@ -97,19 +100,19 @@ document.addEventListener("DOMContentLoaded", function () {
                 getFormData.append("gedcom_file", gedcomFile);
             }
 
-            // Submit the small file data to GetForm
-            const smallFileResponse = await fetch(
-                "https://getform.io/f/bdrgewgb",
-                {
+            // Best-effort CRM/lead capture; do not block request submission.
+            try {
+                const smallFileResponse = await fetch(GETFORM_ENDPOINT, {
                     method: "POST",
                     body: getFormData,
-                },
-            );
-
-            if (!smallFileResponse.ok) {
-                throw new Error(
-                    `Failed to submit complete form: ${smallFileResponse.status}`,
-                );
+                });
+                if (!smallFileResponse.ok) {
+                    console.warn(
+                        `GetForm submission failed with status ${smallFileResponse.status}`,
+                    );
+                }
+            } catch (getformError) {
+                console.warn("GetForm submission skipped due to network error:", getformError);
             }
 
             // If gedcom file is large, need to append still for backend
@@ -123,7 +126,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     : "/build_descendant_tree";
             console.log("Submitting to endpoint:", endpoint);
             const response = await fetch(
-                `https://family-trees-backend.replit.app${endpoint}`,
+                `${TREE_BACKEND_BASE_URL}${endpoint}`,
                 {
                     // const response = await fetch(`http://127.0.0.1:10000${endpoint}`, {
                     method: "POST",
@@ -141,7 +144,13 @@ document.addEventListener("DOMContentLoaded", function () {
             showRequestSubmitted();
         } catch (error) {
             console.error("Error submitting family tree request:", error);
-            showError(`Failed to submit request: ${error.message}`);
+            if (error && error.message === "Failed to fetch") {
+                showError(
+                    "Failed to reach the tree-processing server. This is usually caused by an extension/ad blocker, VPN/proxy, firewall, or DNS/network filtering on this device. Please allow access to family-trees-backend.replit.app and try again.",
+                );
+            } else {
+                showError(`Failed to submit request: ${error.message}`);
+            }
         } finally {
             hideLoading();
         }
