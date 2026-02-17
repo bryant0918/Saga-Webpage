@@ -1,76 +1,73 @@
-# Family Saga - Replit Agent Guide
+# Family Saga - Custom Family Tree Charts
 
 ## Overview
 
-Family Saga is a static frontend web application that generates custom family tree charts. Users can either connect their FamilySearch account via OAuth 2 or upload a GEDCOM file to create beautifully designed, printable family tree charts. The application features a luxury black-and-gold Scandinavian design aesthetic and offers multiple tree themes, types (ancestor/descendant), and generation depths. The product is a paid service with pricing based on tree type and number of generations.
+Family Saga is a frontend web application that generates custom family tree charts. Users can either connect their FamilySearch account via OAuth 2 or upload a GEDCOM file to create beautifully designed family tree PDFs. The app features a luxury black-and-gold Scandinavian design aesthetic and monetizes through Stripe payment integration.
+
+The application is primarily a static site served by a simple server, with client-side JavaScript handling FamilySearch OAuth authentication, tree data fetching, and GEDCOM file processing.
 
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
-
-### Frontend-Only Static Site
-- **Problem:** Need a client-facing genealogy chart application that integrates with FamilySearch.
-- **Solution:** Pure static HTML/CSS/JavaScript site with no backend framework. Pages are individual HTML files (`index.html`, `familysearch.html`, `familysearch-config.html`, `gedcom.html`, `source-selection.html`).
-- **Pros:** Simple deployment, no server infrastructure needed for the frontend, fast loading.
-- **Cons:** Limited server-side processing; any backend work (like GEDCOM processing or PDF generation) would need to be added separately.
+### Frontend (Static HTML/CSS/JS)
+- **No frontend framework** — the app is built with plain HTML, CSS, and vanilla JavaScript
+- **Bootstrap 5.3** is used for layout, components, and responsive design (dark theme via `data-bs-theme="dark"`)
+- **Font Awesome 6.4** for icons
+- **Google Fonts** — Inter (body text) and Playfair Display (headings) for a Scandinavian luxury feel
+- **Custom CSS** (`custom.css` and `styles.css`) defines the black-and-gold color scheme with CSS custom properties
 
 ### Page Structure
-- `index.html` — Landing page / homepage with hero section and navigation
+- `index.html` — Landing page / home with hero section and OAuth callback handling
 - `source-selection.html` — Choose between FamilySearch login or GEDCOM upload
 - `familysearch.html` — FamilySearch OAuth login page
-- `familysearch-config.html` — Configure tree options after FamilySearch authentication
-- `gedcom.html` — GEDCOM file upload form with tree configuration options
+- `familysearch-config.html` — Configure tree settings after FamilySearch authentication
+- `gedcom.html` — GEDCOM file upload form
 
 ### JavaScript Modules
-- `main.js` — Navigation logic, cookie utilities, OAuth callback handling, source selection routing
-- `familysearch.js` — FamilySearch OAuth 2 authentication (PKCE flow implied), API communication, token management via cookies
-- `script.js` — GEDCOM upload form handling, file input UX, form submission with tree configuration
-- `price-calculator.js` — Pricing logic based on tree type and generation count
+- `main.js` — Entry point, handles OAuth callback detection, cookie utilities, and source selection routing
+- `familysearch.js` — FamilySearch OAuth 2 authentication flow (PKCE-based), API calls, cookie management for access tokens
+- `script.js` — GEDCOM upload form handling, file input display, form submission with theme mapping
+- `price-calculator.js` — Pricing logic and Stripe Buy Button integration
 
-### FamilySearch OAuth 2 Integration
-- **Problem:** Users need to authenticate with FamilySearch to access their family tree data.
-- **Solution:** Client-side OAuth 2 authorization code flow using FamilySearch's identity service. The app has a registered App Key (`b00KBZ8PWGLG7SJ0A3U1`) and redirects users through FamilySearch's auth endpoints.
-- **Environment:** Currently configured for **production** (with beta endpoints commented out).
-- **Token storage:** Access tokens stored in cookies (`fs_access_token`). The Security Policy mandates `Secure`, `HttpOnly`, and `SameSite` flags — note that the current client-side implementation uses `document.cookie` which cannot set `HttpOnly`, so a server-side component would be needed to fully comply with the security policy.
+### Authentication
+- **FamilySearch OAuth 2** with authorization code flow
+- Access tokens stored in cookies (`fs_access_token`)
+- Production environment pointing to `ident.familysearch.org` and `api.familysearch.org`
+- App key: `b00KBZ8PWGLG7SJ0A3U1`
+- Note: The SecurityPolicy.md mandates HttpOnly/Secure cookies, but the current client-side implementation uses `document.cookie` which cannot set HttpOnly. This is an area for improvement — moving token handling server-side would be needed for full compliance.
 
-### Styling & Design System
-- **Problem:** Need a premium, luxury feel for the product.
-- **Solution:** Dark theme with black-and-gold color palette. Uses Bootstrap 5.3 (dark mode via `data-bs-theme="dark"`), Font Awesome 6.4 for icons, Google Fonts (Inter for body, Playfair Display for headings).
-- `custom.css` — Primary design system with CSS variables for the black/gold theme, used by all Bootstrap-themed pages.
-- `styles.css` — Alternate styling for `source-selection.html` with a different gradient-based design (appears to be legacy or alternate design).
+### Pricing & Payments
+- Two tree types: **Ancestor** (base $149) and **Descendant** (base $169)
+- Additional generations cost $49 extra
+- **Stripe Buy Buttons** handle payment (live publishable key in `price-calculator.js`)
+- 4 unique Stripe Buy Button IDs mapped to each pricing option in `STRIPE_BUY_BUTTONS` object in `price-calculator.js`:
+  - `ancestor_5` — Ancestor Tree, 5 Generations ($198)
+  - `ancestor_4` — Ancestor Tree, 4 Generations ($149)
+  - `descendant_4` — Descendant Tree, 4 Generations ($218)
+  - `descendant_3` — Descendant Tree, 3 Generations ($169)
+- Buy buttons are dynamically swapped in `familysearch-config.html` based on the user's tree type and generation selection
+- Note: Currently ancestor_4, descendant_4, and descendant_3 use placeholder button IDs (same as ancestor_5) — need to be replaced with real Stripe Buy Button IDs
 
-### Pricing Model
-- Ancestor trees: $149 base (4 generations), +$49 for 5th generation
-- Descendant trees: $169 base (3 generations), +$49 for 4th generation
-
-### Theme System
-Tree chart themes are mapped from frontend names to backend values:
+### Tree Themes
+Four visual themes mapped to backend values:
 - `royal-heritage` → `black`
 - `rustic-roots` → `rustic`
 - `vintage-botanical` → `green`
 - `ancestral-stone` → `stone`
 
-### Backend Requirements (Not Yet Implemented)
-The form in `script.js` submits data (contact info, GEDCOM file, tree configuration) that implies a backend API endpoint is needed for:
-- GEDCOM file processing and parsing
-- Family tree chart/PDF generation
-- Possibly payment processing
-- Secure token handling for FamilySearch (to comply with HttpOnly cookie requirement)
-
 ## External Dependencies
 
 ### Third-Party Services
-- **FamilySearch API** — Production endpoints at `api.familysearch.org` and `ident.familysearch.org` for OAuth and tree data. App Key: `b00KBZ8PWGLG7SJ0A3U1`.
+- **FamilySearch API** (production: `api.familysearch.org`) — OAuth 2 authentication and family tree data retrieval
+- **Stripe** — Payment processing via Stripe Buy Buttons (live key: `pk_live_51SZ0q2...`)
 
-### CDN Libraries
-- **Bootstrap 5.3.0** — UI framework (`cdn.jsdelivr.net`)
-- **Font Awesome 6.4.0** — Icon library (`cdnjs.cloudflare.com`)
-- **Google Fonts** — Inter (sans-serif) and Playfair Display (serif)
+### CDN Resources
+- Bootstrap 5.3 (CSS from jsdelivr)
+- Font Awesome 6.4 (CSS from cdnjs)
+- Google Fonts (Inter, Playfair Display)
+- Stripe Buy Button JS (`js.stripe.com`)
 
 ### No Database
-There is currently no database. If one is added, it would likely store user sessions, order information, and generated chart metadata. No Drizzle or ORM configuration exists yet.
-
-### No Backend Framework
-No server-side code exists. When a backend is needed, it should handle: GEDCOM processing, PDF generation, secure cookie management for OAuth tokens, and potentially payment integration.
+- The application currently has no database. If one is needed in the future, consider the data that would need persisting: user sessions, order history, generated PDFs, etc.

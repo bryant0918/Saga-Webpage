@@ -1,60 +1,81 @@
-// Price calculation logic for Family Saga trees
+var STRIPE_PUBLISHABLE_KEY = "pk_live_51SZ0q2Gi0ETKj4aVlXXM8GJDyek0BAG5FZwqtv2O73EBbyYLgfEYz0mVU8tBAp3v0RodAwSNfPaZCqJ6CQtx8whJ00OHmi7dpk";
+
+var STRIPE_BUY_BUTTONS = {
+    "ancestor_5": "buy_btn_1T1WQIGi0ETKj4aVLr5VfuEj",
+    "ancestor_4": "buy_btn_1T1WQIGi0ETKj4aVLr5VfuEj",
+    "descendant_4": "buy_btn_1T1WQIGi0ETKj4aVLr5VfuEj",
+    "descendant_3": "buy_btn_1T1WQIGi0ETKj4aVLr5VfuEj"
+};
+
 function calculateTreePrice(treeType, generations) {
-    let basePrice = 0;
-    let additionalCost = 0;
+    var basePrice = 0;
+    var additionalCost = 0;
     
     if (treeType === 'ancestor') {
-        basePrice = 149; // Base price for 4 generations
+        basePrice = 149;
         if (generations === 5) {
-            additionalCost = 49; // +$49 for 5th generation
+            additionalCost = 49;
         }
-        // 3 generations would be less than base, but we'll keep base price
     } else if (treeType === 'descendant') {
-        basePrice = 169; // Base price for 3 generations
+        basePrice = 169;
         if (generations === 4) {
-            additionalCost = 49; // +$49 for 4th generation
+            additionalCost = 49;
         }
-        // 3 generations is the base for descendant trees
     }
     
     return basePrice + additionalCost;
 }
 
+function getButtonKey(treeType, generations) {
+    return treeType + "_" + generations;
+}
+
 function updatePriceDisplay() {
-    const treeTypeSelect = document.getElementById('treeType');
-    const generationsSelect = document.getElementById('generations');
-    const priceDisplay = document.getElementById('totalPrice');
+    var treeTypeSelect = document.getElementById('treeType');
+    var generationsSelect = document.getElementById('generations');
+    var priceDisplay = document.getElementById('totalPrice');
+    var stripeContainer = document.getElementById('stripeBuyButton');
     
     if (!treeTypeSelect || !generationsSelect || !priceDisplay) {
         return;
     }
     
-    const treeType = treeTypeSelect.value;
-    const generations = parseInt(generationsSelect.value);
-    const totalPrice = calculateTreePrice(treeType, generations);
+    var treeType = treeTypeSelect.value;
+    var generations = parseInt(generationsSelect.value);
+    var totalPrice = calculateTreePrice(treeType, generations);
+    var treeLabel = treeType === 'ancestor' ? 'Ancestry' : 'Descendancy';
     
-    // Update the price display
-    priceDisplay.innerHTML = `
-        <div class="text-center mb-4">
-            <p class="mb-2" style="color: white; font-weight: bold; font-size: 1.1rem;">
-                <i class="fas fa-dollar-sign me-2" style="color: var(--gold-primary);"></i>Total Price: <span style="color: var(--gold-primary);">$${totalPrice}</span>
-            </p>
-            <small style="color: var(--text-gray);">
-                ${treeType === 'ancestor' ? 'Ancestry' : 'Descendancy'} Tree - ${generations} Generation${generations > 1 ? 's' : ''}
-            </small>
-        </div>
-    `;
+    priceDisplay.innerHTML =
+        '<div class="text-center mb-4">' +
+            '<p class="mb-2" style="color: white; font-weight: bold; font-size: 1.1rem;">' +
+                '<i class="fas fa-dollar-sign me-2" style="color: var(--gold-primary);"></i>' +
+                'Total Price: <span style="color: var(--gold-primary);">$' + totalPrice + '</span>' +
+            '</p>' +
+            '<small style="color: var(--text-gray);">' +
+                treeLabel + ' Tree - ' + generations + ' Generation' + (generations > 1 ? 's' : '') +
+            '</small>' +
+        '</div>';
+    
+    if (stripeContainer) {
+        var buttonKey = getButtonKey(treeType, generations);
+        var buyButtonId = STRIPE_BUY_BUTTONS[buttonKey];
+        
+        if (buyButtonId) {
+            stripeContainer.innerHTML =
+                '<stripe-buy-button ' +
+                    'buy-button-id="' + buyButtonId + '" ' +
+                    'publishable-key="' + STRIPE_PUBLISHABLE_KEY + '"' +
+                '></stripe-buy-button>';
+        }
+    }
 }
 
-// Initialize price calculation when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    // Add event listeners for price updates
-    const treeTypeSelect = document.getElementById('treeType');
-    const generationsSelect = document.getElementById('generations');
+    var treeTypeSelect = document.getElementById('treeType');
+    var generationsSelect = document.getElementById('generations');
     
     if (treeTypeSelect) {
         treeTypeSelect.addEventListener('change', function() {
-            // Small delay to allow the generations dropdown to update first
             setTimeout(updatePriceDisplay, 50);
         });
     }
@@ -63,6 +84,5 @@ document.addEventListener('DOMContentLoaded', function() {
         generationsSelect.addEventListener('change', updatePriceDisplay);
     }
     
-    // Initial price calculation
-    setTimeout(updatePriceDisplay, 100); // Small delay to ensure all elements are loaded
+    setTimeout(updatePriceDisplay, 100);
 });
