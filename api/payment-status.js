@@ -55,7 +55,16 @@ router.get('/', async (req, res) => {
     return res.status(200).json({
       paid: paymentData.paid,
       amount: paymentData.amount / 100, // Convert cents to dollars
+      amountSubtotal: paymentData.amountSubtotal != null ? paymentData.amountSubtotal / 100 : null,
+      amountDiscount: paymentData.amountDiscount != null ? paymentData.amountDiscount / 100 : null,
+      amountTotal: paymentData.amountTotal != null ? paymentData.amountTotal / 100 : null,
+      amountPaid: paymentData.amountPaid != null ? paymentData.amountPaid / 100 : null,
+      amountDue: paymentData.amountDue != null ? paymentData.amountDue / 100 : null,
       currency: paymentData.currency,
+      couponsUsed: (paymentData.couponsUsed || []).map((coupon) => ({
+        ...coupon,
+        amount: coupon.amount != null ? coupon.amount / 100 : null,
+      })),
       timestamp: paymentData.timestamp,
       sessionId: paymentData.sessionId,
       customerEmail: paymentData.customerEmail,

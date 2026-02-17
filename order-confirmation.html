@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Order Confirmed | Family Saga</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="custom.css" />
+</head>
+<body>
+  <main class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-lg-8">
+        <div class="card shadow-sm">
+          <div class="card-body p-4 p-md-5">
+            <div class="text-center mb-4">
+              <i class="fas fa-check-circle fa-3x mb-3" style="color: var(--gold-primary);"></i>
+              <h2 class="mb-2">Order Confirmed</h2>
+              <p class="mb-0" style="color: #6c757d;">Your family tree request has been received successfully.</p>
+            </div>
+
+            <div class="alert alert-success" style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-color: var(--gold-primary); color: #065f46;">
+              We will begin processing your order and contact you with updates.
+            </div>
+
+            <h5 class="mt-4 mb-3">Order Details</h5>
+            <div class="table-responsive">
+              <table class="table table-sm">
+                <tbody>
+                  <tr><th scope="row">Request ID</th><td id="requestId">-</td></tr>
+                  <tr><th scope="row">Product</th><td id="productName">-</td></tr>
+                  <tr><th scope="row">Customer Email</th><td id="customerEmail">-</td></tr>
+                  <tr><th scope="row">Family Name</th><td id="familyName">-</td></tr>
+                  <tr><th scope="row">Tree Type</th><td id="treeType">-</td></tr>
+                  <tr><th scope="row">Generations</th><td id="generations">-</td></tr>
+                  <tr><th scope="row">Charged Price</th><td id="amountSubtotal">-</td></tr>
+                  <tr><th scope="row">Coupons Used</th><td id="couponsUsed">-</td></tr>
+                  <tr><th scope="row">Discount</th><td id="amountDiscount">-</td></tr>
+                  <tr><th scope="row">Amount Paid</th><td id="amountPaid">-</td></tr>
+                  <tr><th scope="row">Amount Due</th><td id="amountDue">-</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap mt-4">
+              <a href="familysearch-config.html" class="btn btn-outline-secondary">Create Another Order</a>
+              <a href="index.html" class="btn btn-nordic">Back to Home</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+
+      const requestId = params.get('requestId') || '-';
+      const amount = params.get('amount');
+      const amountSubtotal = params.get('amountSubtotal');
+      const amountDiscount = params.get('amountDiscount');
+      const amountTotal = params.get('amountTotal');
+      const amountPaid = params.get('amountPaid');
+      const amountDue = params.get('amountDue');
+      const currency = (params.get('currency') || 'usd').toUpperCase();
+      const customerEmail = params.get('customerEmail') || '-';
+      const familyName = params.get('familyName') || '-';
+      const treeTypeRaw = params.get('treeType') || '-';
+      const generations = params.get('generations') || '-';
+      const productKey = params.get('productKey') || '';
+      const couponsUsedRaw = params.get('couponsUsed') || '[]';
+
+      const productNameMap = {
+        ancestry_4: 'Ancestry Tree - 4 Generations',
+        ancestry_5: 'Ancestry Tree - 5 Generations',
+        descendant_3: 'Descendant Tree - 3 Generations',
+        descendant_4: 'Descendant Tree - 4 Generations',
+      };
+
+      const productName =
+        productNameMap[productKey] ||
+        (treeTypeRaw !== '-' && generations !== '-' ? `${treeTypeRaw} - ${generations} Generations` : '-');
+
+      const formatMoney = (value) => {
+        if (value === null || value === undefined || value === '') return '-';
+        const numberValue = Number(value);
+        if (Number.isNaN(numberValue)) return '-';
+        return `$${numberValue.toFixed(2)} ${currency}`;
+      };
+
+      const parseCoupons = () => {
+        try {
+          const parsed = JSON.parse(couponsUsedRaw);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+          return [];
+        }
+      };
+
+      const coupons = parseCoupons();
+      const couponsText = coupons.length
+        ? coupons
+            .map((coupon) => {
+              const promotionCode =
+                typeof coupon.promotionCode === 'string' && !coupon.promotionCode.startsWith('promo_')
+                  ? coupon.promotionCode
+                  : '';
+              const couponName = coupon.couponName || '';
+              const couponId =
+                typeof coupon.couponId === 'string' && !coupon.couponId.startsWith('coupon_')
+                  ? coupon.couponId
+                  : '';
+              const code = couponName || promotionCode || couponId || 'Coupon';
+              const discountAmount = coupon.amount != null ? Number(coupon.amount) : null;
+              const formattedDiscount = discountAmount != null && !Number.isNaN(discountAmount)
+                ? ` (-$${discountAmount.toFixed(2)})`
+                : '';
+              return `${code}${formattedDiscount}`;
+            })
+            .join(', ')
+        : '-';
+
+      const fallbackAmountPaid = amountPaid !== null && amountPaid !== '' ? amountPaid : amount;
+      const fallbackAmountSubtotal = amountSubtotal !== null && amountSubtotal !== ''
+        ? amountSubtotal
+        : amountTotal;
+      const treeType = treeTypeRaw === 'ancestor' ? 'Ancestry Tree' : treeTypeRaw === 'descendant' ? 'Descendant Tree' : treeTypeRaw;
+
+      document.getElementById('requestId').textContent = requestId;
+      document.getElementById('productName').textContent = productName;
+      document.getElementById('amountSubtotal').textContent = formatMoney(fallbackAmountSubtotal);
+      document.getElementById('amountDiscount').textContent = formatMoney(amountDiscount);
+      document.getElementById('amountPaid').textContent = formatMoney(fallbackAmountPaid);
+      document.getElementById('amountDue').textContent = formatMoney(amountDue);
+      document.getElementById('couponsUsed').textContent = couponsText;
+      document.getElementById('customerEmail').textContent = customerEmail;
+      document.getElementById('familyName').textContent = familyName;
+      document.getElementById('treeType').textContent = treeType;
+      document.getElementById('generations').textContent = generations;
+    })();
+  </script>
+</body>
+</html>

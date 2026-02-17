@@ -86,6 +86,14 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
           return res.status(400).json({ error: 'Missing request_id in metadata' });
         }
 
+        // Re-fetch session with expanded discount breakdown so we can show coupon details.
+        const expandedSession = await stripe.checkout.sessions.retrieve(session.id, {
+          expand: [
+            // Stripe max expansion depth is 4; expanding coupon/promotion_code here exceeds that.
+            'total_details.breakdown.discounts.discount',
+          ],
+        });
+
         // Look up line items from Stripe so we can reliably identify the purchased price.
         const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
           limit: 1,
@@ -94,13 +102,96 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
         const firstLineItem = lineItems.data[0];
         const priceId = firstLineItem && firstLineItem.price ? firstLineItem.price.id : null;
         const productKey = priceId ? PRODUCT_BY_PRICE_ID[priceId] : null;
+
+        const amountSubtotal = expandedSession.amount_subtotal != null
+          ? expandedSession.amount_subtotal
+          : session.amount_subtotal;
+        const amountDiscount = expandedSession.total_details &&
+          expandedSession.total_details.amount_discount != null
+          ? expandedSession.total_details.amount_discount
+          : (session.total_details && session.total_details.amount_discount) || 0;
+        const amountTotal = expandedSession.amount_total != null
+          ? expandedSession.amount_total
+          : session.amount_total;
+        const amountPaid = session.amount_total != null ? session.amount_total : amountTotal;
+        const amountDue = session.payment_status === 'paid' ? 0 : Math.max((amountTotal || 0) - (amountPaid || 0), 0);
+
+        const discounts = (expandedSession.total_details &&
+          expandedSession.total_details.breakdown &&
+          expandedSession.total_details.breakdown.discounts) || [];
+        const couponsUsedRaw = discounts.map((entry) => {
+          const discountObj = entry.discount || {};
+          const coupon = discountObj.coupon && typeof discountObj.coupon === 'object'
+            ? discountObj.coupon
+            : null;
+          const couponId = coupon
+            ? coupon.id
+            : (typeof discountObj.coupon === 'string' ? discountObj.coupon : null);
+          const promotionCodeObj = discountObj.promotion_code && typeof discountObj.promotion_code === 'object'
+            ? discountObj.promotion_code
+            : null;
+          const promotionCodeValue = promotionCodeObj
+            ? (promotionCodeObj.code || promotionCodeObj.id || null)
+            : (typeof discountObj.promotion_code === 'string' ? discountObj.promotion_code : null);
+
+          return {
+            amount: entry.amount || 0,
+            couponId: couponId,
+            couponName: coupon ? (coupon.name || null) : null,
+            promotionCode: promotionCodeValue,
+          };
+        }).filter((item) => item.couponId || item.promotionCode || item.amount > 0);
+
+        // Enrich IDs into user-friendly labels where Stripe only returns object IDs.
+        const couponsUsed = await Promise.all(couponsUsedRaw.map(async (item) => {
+          let couponName = item.couponName;
+          let promotionCode = item.promotionCode;
+
+          if (!couponName && item.couponId && typeof item.couponId === 'string') {
+            try {
+              const coupon = await stripe.coupons.retrieve(item.couponId);
+              if (coupon && coupon.name) {
+                couponName = coupon.name;
+              }
+            } catch (error) {
+              console.warn(`Unable to enrich coupon ${item.couponId}:`, error.message);
+            }
+          }
+
+          if (
+            promotionCode &&
+            typeof promotionCode === 'string' &&
+            promotionCode.startsWith('promo_')
+          ) {
+            try {
+              const promo = await stripe.promotionCodes.retrieve(promotionCode);
+              if (promo && promo.code) {
+                promotionCode = promo.code;
+              }
+            } catch (error) {
+              console.warn(`Unable to enrich promotion code ${promotionCode}:`, error.message);
+            }
+          }
+
+          return {
+            ...item,
+            couponName,
+            promotionCode,
+          };
+        }));
         
         // Prepare payment data to store
         const paymentData = {
           paid: true,
           sessionId: session.id,
-          amount: session.amount_total,
+          amount: amountTotal,
+          amountSubtotal: amountSubtotal,
+          amountDiscount: amountDiscount,
+          amountTotal: amountTotal,
+          amountPaid: amountPaid,
+          amountDue: amountDue,
           currency: session.currency,
+          couponsUsed: couponsUsed,
           customerEmail: session.customer_email || session.metadata.contact_email,
           paymentStatus: session.payment_status,
           priceId: priceId,

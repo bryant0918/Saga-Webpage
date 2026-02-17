@@ -477,10 +477,10 @@
                                     <div id="paymentCompleteMessage" class="alert alert-success text-center d-none" style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-color: var(--gold-primary); color: #065f46;">
                                         <i class="fas fa-check-circle fa-2x mb-2" style="color: var(--gold-primary);"></i><br>
                                         <strong>Payment Confirmed!</strong><br>
-                                        <small>You can now submit your family tree request.</small>
+                                        <small>Submitting your family tree request automatically...</small>
                                     </div>
 
-                                    <!-- Submit Button (Hidden until payment complete) -->
+                                    <!-- Manual submit hidden by default (auto-submit handles paid flow) -->
                                     <div class="text-center">
                                         <button
                                             type="submit"
@@ -488,7 +488,7 @@
                                             disabled
                                         >
                                             <i class="fas fa-paper-plane me-2"></i>
-                                            Submit Tree Request
+                                            Retry Submission
                                         </button>
                                     </div>
                                 </div>

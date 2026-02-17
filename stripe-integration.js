@@ -2,12 +2,72 @@
 // Handles payment session creation, polling, and UI updates
 
 // Global state for payment tracking
+const CHECKOUT_FORM_STORAGE_KEY = 'familySagaCheckoutFormDataV1';
+
 window.stripePayment = {
   requestId: null,
   pollingInterval: null,
   maxPollingAttempts: 150, // 150 attempts * 2 seconds = 5 minutes max
   currentAttempt: 0,
+  isSubmittingOrder: false,
 };
+
+function persistCheckoutFormData(formData) {
+  try {
+    sessionStorage.setItem(CHECKOUT_FORM_STORAGE_KEY, JSON.stringify(formData));
+  } catch (error) {
+    console.warn('Unable to persist checkout form data:', error);
+  }
+}
+
+function getPersistedCheckoutFormData() {
+  try {
+    const raw = sessionStorage.getItem(CHECKOUT_FORM_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    console.warn('Unable to read persisted checkout form data:', error);
+    return null;
+  }
+}
+
+function clearPersistedCheckoutFormData() {
+  try {
+    sessionStorage.removeItem(CHECKOUT_FORM_STORAGE_KEY);
+  } catch (error) {
+    console.warn('Unable to clear persisted checkout form data:', error);
+  }
+}
+
+function restoreCheckoutFormDataToInputs() {
+  const formData = getPersistedCheckoutFormData();
+  if (!formData) {
+    return;
+  }
+
+  const setValue = (id, value) => {
+    const element = document.getElementById(id);
+    if (element && value !== undefined && value !== null) {
+      element.value = value;
+    }
+  };
+
+  setValue('contactName', formData.contact_name);
+  setValue('contactEmail', formData.contact_email);
+  setValue('contactPhone', formData.contact_phone);
+  setValue('startingPerson', formData.starting_person);
+  setValue('familyName', formData.title);
+  setValue('treeType', formData.tree_type);
+
+  const treeTypeEl = document.getElementById('treeType');
+  if (treeTypeEl) {
+    treeTypeEl.dispatchEvent(new Event('change'));
+  }
+
+  setValue('generations', formData.generations);
+  setValue('selectedTheme', formData.theme);
+
+  window.stripePayment.formData = formData;
+}
 
 // Generate a unique request ID using UUID v4 format
 function generateRequestId() {
@@ -155,6 +215,11 @@ function showPaymentCompleteUI() {
   const submitButton = document.querySelector('button[type="submit"]');
 
   if (paymentComplete) {
+    paymentComplete.innerHTML = `
+      <i class="fas fa-check-circle fa-2x mb-2" style="color: var(--gold-primary);"></i><br>
+      <strong>Payment Confirmed!</strong><br>
+      <small>Submitting your request automatically...</small>
+    `;
     paymentComplete.classList.remove('d-none');
   }
 
@@ -163,9 +228,9 @@ function showPaymentCompleteUI() {
   }
 
   if (submitButton) {
-    submitButton.disabled = false;
-    submitButton.classList.remove('d-none');
-    submitButton.style.display = 'block';
+    submitButton.disabled = true;
+    submitButton.classList.add('d-none');
+    submitButton.style.display = 'none';
   }
 }
 
@@ -206,6 +271,7 @@ async function handleProceedToPayment(event) {
 
     // Store form data for later submission
     window.stripePayment.formData = formData;
+    persistCheckoutFormData(formData);
 
     // Disable payment button
     const paymentButton = document.getElementById('proceedToPaymentBtn');
@@ -250,9 +316,31 @@ function checkPaymentReturn() {
     window.stripePayment.requestId = requestId;
     
     // Start polling for payment confirmation
-    startPaymentPolling(requestId, (status) => {
+    startPaymentPolling(requestId, async (status) => {
       showPaymentCompleteUI();
-      console.log('Payment flow complete:', status);
+      console.log('Payment flow complete, starting auto-submit:', status);
+
+      if (window.stripePayment.isSubmittingOrder) {
+        return;
+      }
+
+      window.stripePayment.isSubmittingOrder = true;
+
+      try {
+        if (typeof window.submitFamilyTreeAfterPayment !== 'function') {
+          throw new Error('Submission handler not initialized. Please refresh and try again.');
+        }
+        await window.submitFamilyTreeAfterPayment(status);
+      } catch (error) {
+        console.error('Auto-submission failed after payment:', error);
+        const errorMessage = document.getElementById('errorMessage');
+        if (errorMessage) {
+          errorMessage.textContent = `Payment confirmed, but request submission failed: ${error.message}`;
+          errorMessage.classList.remove('d-none');
+        }
+      } finally {
+        window.stripePayment.isSubmittingOrder = false;
+      }
     });
 
     // Clean up URL
@@ -272,6 +360,9 @@ function checkPaymentReturn() {
 
 // Initialize payment integration on page load
 document.addEventListener('DOMContentLoaded', function() {
+  // Restore form values from pre-checkout state before payment-return handling.
+  restoreCheckoutFormDataToInputs();
+
   // Check if returning from payment
   checkPaymentReturn();
 
@@ -292,4 +383,6 @@ window.stripePaymentFunctions = {
   handleProceedToPayment,
   checkPaymentReturn,
   showPaymentCompleteUI,
+  getPersistedCheckoutFormData,
+  clearPersistedCheckoutFormData,
 };
