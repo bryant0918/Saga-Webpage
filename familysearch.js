@@ -296,6 +296,36 @@ document.addEventListener("DOMContentLoaded", function () {
             formData.append("access_token", currentAccessToken);
             formData.append("request_id", requestId); // Link to payment
             formData.append("payment_verified", "true");
+            formData.append(
+                "amount_subtotal",
+                paymentStatus && paymentStatus.amountSubtotal != null
+                    ? String(paymentStatus.amountSubtotal)
+                    : "",
+            );
+            formData.append(
+                "coupons_used",
+                paymentStatus && Array.isArray(paymentStatus.couponsUsed)
+                    ? JSON.stringify(paymentStatus.couponsUsed)
+                    : "[]",
+            );
+            formData.append(
+                "amount_discount",
+                paymentStatus && paymentStatus.amountDiscount != null
+                    ? String(paymentStatus.amountDiscount)
+                    : "",
+            );
+            formData.append(
+                "amount_paid",
+                paymentStatus && paymentStatus.amountPaid != null
+                    ? String(paymentStatus.amountPaid)
+                    : "",
+            );
+            formData.append(
+                "amount_due",
+                paymentStatus && paymentStatus.amountDue != null
+                    ? String(paymentStatus.amountDue)
+                    : "",
+            );
 
             // Best-effort CRM/lead capture; do not block paid request submission.
             try {
