@@ -492,14 +492,51 @@
                                     <!-- Price will be calculated and displayed here -->
                                 </div>
 
-                                <div class="text-center">
-                                    <button
-                                        type="submit"
-                                        class="btn btn-nordic btn-lg"
-                                    >
-                                        <i class="fas fa-paper-plane me-2"></i>
-                                        Request Family Tree
-                                    </button>
+                                <!-- Payment Section -->
+                                <div class="mb-4">
+                                    <div class="alert alert-warning text-center" style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border-color: var(--gold-primary); color: #92400e;">
+                                        <i class="fas fa-shield-alt me-2" style="color: var(--gold-primary);"></i>
+                                        <strong>Secure Payment Required</strong><br>
+                                        <small>Payment must be completed before submitting your tree request.</small>
+                                    </div>
+
+                                    <div class="text-center mb-3" id="paymentButtonContainer">
+                                        <button
+                                            type="button"
+                                            id="proceedToPaymentBtn"
+                                            class="btn btn-lg"
+                                            style="background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%); color: var(--deep-black); font-weight: 600; border: none;"
+                                            onclick="handleProceedToPayment(event)"
+                                        >
+                                            <i class="fas fa-credit-card me-2"></i>
+                                            Proceed to Payment
+                                        </button>
+                                    </div>
+
+                                    <div id="paymentPollingMessage" class="alert alert-info text-center d-none" style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border-color: var(--gold-primary); color: #1e40af;">
+                                        <div class="spinner-border spinner-border-sm me-2" role="status" style="color: var(--gold-primary);">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <strong>Confirming your payment...</strong><br>
+                                        <small>Please wait while we verify your payment with Stripe.</small>
+                                    </div>
+
+                                    <div id="paymentCompleteMessage" class="alert alert-success text-center d-none" style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-color: var(--gold-primary); color: #065f46;">
+                                        <i class="fas fa-check-circle fa-2x mb-2" style="color: var(--gold-primary);"></i><br>
+                                        <strong>Payment Confirmed!</strong><br>
+                                        <small>Submitting your family tree request automatically...</small>
+                                    </div>
+
+                                    <div class="text-center">
+                                        <button
+                                            type="submit"
+                                            class="btn btn-nordic btn-lg d-none"
+                                            disabled
+                                        >
+                                            <i class="fas fa-paper-plane me-2"></i>
+                                            Retry Submission
+                                        </button>
+                                    </div>
                                 </div>
                             </form>
 
@@ -572,8 +609,7 @@
                                     <p class="mb-0">
                                         Thanks for submitting a family tree
                                         request. We will contact you shortly to
-                                        deliver your completed family tree and
-                                        gather payment.
+                                        deliver your completed family tree.
                                     </p>
                                 </div>
                             </div>
@@ -617,6 +653,7 @@
 
         <!-- Custom JS -->
         <script src="price-calculator.js"></script>
+        <script src="stripe-integration.js"></script>
         <script src="script.js"></script>
         <script>
             // Enhanced file input functionality
