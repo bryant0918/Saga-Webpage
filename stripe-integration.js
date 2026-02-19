@@ -144,6 +144,7 @@ function generateRequestId() {
 // Create a Stripe payment session
 async function createPaymentSession(formData) {
   try {
+    const config = getPaymentFlowConfig();
     if (!window.stripePayment.requestId) {
       window.stripePayment.requestId = generateRequestId();
     }
@@ -161,6 +162,10 @@ async function createPaymentSession(formData) {
       startingPerson: formData.starting_person,
       theme: formData.theme,
       userId: formData.user_id || 'unknown',
+      returnPath:
+        typeof config.returnPath === 'string' && config.returnPath.trim()
+          ? config.returnPath.trim()
+          : window.location.pathname,
     };
 
     console.log('Creating payment session with data:', paymentData);
