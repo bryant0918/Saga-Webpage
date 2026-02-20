@@ -24,6 +24,37 @@ function getProductKey(treeType, generations) {
   return `${normalizedTreeType}_${generations}`;
 }
 
+function getSafeReturnPath(returnPath) {
+  const defaultPath = '/familysearch-config.html';
+
+  if (typeof returnPath !== 'string') {
+    return defaultPath;
+  }
+
+  const trimmed = returnPath.trim();
+  if (!trimmed) {
+    return defaultPath;
+  }
+
+  // Only allow local paths.
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('//')
+  ) {
+    return defaultPath;
+  }
+
+  const normalizedPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  const pathWithoutQuery = normalizedPath.split('?')[0].split('#')[0];
+
+  if (pathWithoutQuery.includes('..')) {
+    return defaultPath;
+  }
+
+  return pathWithoutQuery || defaultPath;
+}
+
 // POST /api/create-payment-session
 router.post('/', async (req, res) => {
   try {
@@ -38,7 +69,8 @@ router.post('/', async (req, res) => {
       contactPhone,
       startingPerson,
       theme,
-      userId
+      userId,
+      returnPath,
     } = req.body;
 
     // Validate required fields
@@ -72,6 +104,7 @@ router.post('/', async (req, res) => {
     const configuredBaseUrl =
       process.env.PUBLIC_BASE_URL || process.env.APP_URL || process.env.BASE_URL;
     const baseUrl = configuredBaseUrl || req.headers.origin || `https://${req.headers.host}`;
+    const safeReturnPath = getSafeReturnPath(returnPath);
 
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
@@ -79,8 +112,8 @@ router.post('/', async (req, res) => {
       line_items: [{ price: priceId, quantity: 1 }],
       mode: 'payment',
       allow_promotion_codes: true, // ✅ Enable promo code input field
-      success_url: `${baseUrl}/familysearch-config.html?payment=success&request_id=${requestId}`,
-      cancel_url: `${baseUrl}/familysearch-config.html?payment=cancelled`,
+      success_url: `${baseUrl}${safeReturnPath}?payment=success&request_id=${requestId}`,
+      cancel_url: `${baseUrl}${safeReturnPath}?payment=cancelled`,
       customer_email: contactEmail,
       // Store all relevant data in metadata for webhook processing
       metadata: {
@@ -95,6 +128,7 @@ router.post('/', async (req, res) => {
         generations: generations.toString(),
         product_key: productKey,
         price_id: priceId,
+        return_path: safeReturnPath,
         theme: theme || 'royal-heritage',
         submission_time: new Date().toISOString(),
       },

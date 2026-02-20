@@ -1,8 +1,7 @@
-// stripe-integration.js - Frontend Stripe Payment Integration
-// Handles payment session creation, polling, and UI updates
+// stripe-integration.js - Shared Stripe payment flow
+// Reused by FamilySearch and GEDCOM pages via window.paymentFlowConfig hooks.
 
-// Global state for payment tracking
-const CHECKOUT_FORM_STORAGE_KEY = 'familySagaCheckoutFormDataV1';
+const CHECKOUT_FORM_STORAGE_KEY_BASE = 'familySagaCheckoutFormDataV1';
 
 window.stripePayment = {
   requestId: null,
@@ -12,9 +11,88 @@ window.stripePayment = {
   isSubmittingOrder: false,
 };
 
+function getPaymentFlowConfig() {
+  return window.paymentFlowConfig || {};
+}
+
+function getStorageScope() {
+  const config = getPaymentFlowConfig();
+  return config.storageScope || window.location.pathname;
+}
+
+function getCheckoutFormStorageKey() {
+  return `${CHECKOUT_FORM_STORAGE_KEY_BASE}:${getStorageScope()}`;
+}
+
+function getPaymentForm() {
+  const config = getPaymentFlowConfig();
+  if (config.formId) {
+    return document.getElementById(config.formId);
+  }
+
+  return document.getElementById('familySearchForm') || document.getElementById('treeForm');
+}
+
+function defaultCollectCheckoutFormData() {
+  const getValue = (id) => {
+    const element = document.getElementById(id);
+    if (!element) return '';
+    return typeof element.value === 'string' ? element.value.trim() : element.value;
+  };
+
+  const startingPersonInput = document.getElementById('startingPerson');
+  const rootPointerInput = document.getElementById('rootPointer');
+
+  return {
+    contact_name: getValue('contactName'),
+    contact_email: getValue('contactEmail'),
+    contact_phone: getValue('contactPhone'),
+    starting_person: startingPersonInput
+      ? getValue('startingPerson')
+      : (rootPointerInput ? getValue('rootPointer') : ''),
+    title: getValue('familyName'),
+    generations: getValue('generations'),
+    tree_type: getValue('treeType'),
+    theme: getValue('selectedTheme') || 'royal-heritage',
+    user_id: window.accessToken ? 'authenticated' : 'guest',
+  };
+}
+
+function defaultRestoreCheckoutFormData(formData) {
+  const setValue = (id, value) => {
+    const element = document.getElementById(id);
+    if (element && value !== undefined && value !== null) {
+      element.value = value;
+    }
+  };
+
+  setValue('contactName', formData.contact_name);
+  setValue('contactEmail', formData.contact_email);
+  setValue('contactPhone', formData.contact_phone);
+
+  if (document.getElementById('startingPerson')) {
+    setValue('startingPerson', formData.starting_person);
+  }
+
+  if (document.getElementById('rootPointer')) {
+    setValue('rootPointer', formData.starting_person);
+  }
+
+  setValue('familyName', formData.title);
+  setValue('treeType', formData.tree_type);
+
+  const treeTypeEl = document.getElementById('treeType');
+  if (treeTypeEl) {
+    treeTypeEl.dispatchEvent(new Event('change'));
+  }
+
+  setValue('generations', formData.generations);
+  setValue('selectedTheme', formData.theme);
+}
+
 function persistCheckoutFormData(formData) {
   try {
-    sessionStorage.setItem(CHECKOUT_FORM_STORAGE_KEY, JSON.stringify(formData));
+    sessionStorage.setItem(getCheckoutFormStorageKey(), JSON.stringify(formData));
   } catch (error) {
     console.warn('Unable to persist checkout form data:', error);
   }
@@ -22,7 +100,7 @@ function persistCheckoutFormData(formData) {
 
 function getPersistedCheckoutFormData() {
   try {
-    const raw = sessionStorage.getItem(CHECKOUT_FORM_STORAGE_KEY);
+    const raw = sessionStorage.getItem(getCheckoutFormStorageKey());
     return raw ? JSON.parse(raw) : null;
   } catch (error) {
     console.warn('Unable to read persisted checkout form data:', error);
@@ -32,7 +110,7 @@ function getPersistedCheckoutFormData() {
 
 function clearPersistedCheckoutFormData() {
   try {
-    sessionStorage.removeItem(CHECKOUT_FORM_STORAGE_KEY);
+    sessionStorage.removeItem(getCheckoutFormStorageKey());
   } catch (error) {
     console.warn('Unable to clear persisted checkout form data:', error);
   }
@@ -44,27 +122,12 @@ function restoreCheckoutFormDataToInputs() {
     return;
   }
 
-  const setValue = (id, value) => {
-    const element = document.getElementById(id);
-    if (element && value !== undefined && value !== null) {
-      element.value = value;
-    }
-  };
-
-  setValue('contactName', formData.contact_name);
-  setValue('contactEmail', formData.contact_email);
-  setValue('contactPhone', formData.contact_phone);
-  setValue('startingPerson', formData.starting_person);
-  setValue('familyName', formData.title);
-  setValue('treeType', formData.tree_type);
-
-  const treeTypeEl = document.getElementById('treeType');
-  if (treeTypeEl) {
-    treeTypeEl.dispatchEvent(new Event('change'));
+  const config = getPaymentFlowConfig();
+  if (typeof config.restoreCheckoutFormData === 'function') {
+    config.restoreCheckoutFormData(formData);
+  } else {
+    defaultRestoreCheckoutFormData(formData);
   }
-
-  setValue('generations', formData.generations);
-  setValue('selectedTheme', formData.theme);
 
   window.stripePayment.formData = formData;
 }
@@ -81,14 +144,13 @@ function generateRequestId() {
 // Create a Stripe payment session
 async function createPaymentSession(formData) {
   try {
-    // Generate request ID if not already generated
+    const config = getPaymentFlowConfig();
     if (!window.stripePayment.requestId) {
       window.stripePayment.requestId = generateRequestId();
     }
 
     const requestId = window.stripePayment.requestId;
 
-    // Prepare payment session data
     const paymentData = {
       requestId: requestId,
       treeType: formData.tree_type,
@@ -100,11 +162,14 @@ async function createPaymentSession(formData) {
       startingPerson: formData.starting_person,
       theme: formData.theme,
       userId: formData.user_id || 'unknown',
+      returnPath:
+        typeof config.returnPath === 'string' && config.returnPath.trim()
+          ? config.returnPath.trim()
+          : window.location.pathname,
     };
 
     console.log('Creating payment session with data:', paymentData);
 
-    // Call API to create Stripe Checkout session
     const response = await fetch('/api/create-payment-session', {
       method: 'POST',
       headers: {
@@ -128,7 +193,6 @@ async function createPaymentSession(formData) {
   }
 }
 
-// Poll for payment status
 async function pollPaymentStatus(requestId) {
   try {
     const response = await fetch(`/api/payment-status?requestId=${requestId}`, {
@@ -139,30 +203,24 @@ async function pollPaymentStatus(requestId) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const data = await response.json();
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('Error polling payment status:', error);
     return { paid: false, error: error.message };
   }
 }
 
-// Start polling for payment completion
 function startPaymentPolling(requestId, onPaymentComplete) {
   console.log('Starting payment polling for request:', requestId);
-  
-  // Reset polling state
+
   window.stripePayment.currentAttempt = 0;
-  
-  // Clear any existing polling interval
+
   if (window.stripePayment.pollingInterval) {
     clearInterval(window.stripePayment.pollingInterval);
   }
 
-  // Update UI to show waiting state
   showPaymentPollingUI();
 
-  // Poll every 2 seconds
   window.stripePayment.pollingInterval = setInterval(async () => {
     window.stripePayment.currentAttempt++;
 
@@ -171,20 +229,17 @@ function startPaymentPolling(requestId, onPaymentComplete) {
     const status = await pollPaymentStatus(requestId);
 
     if (status.paid) {
-      // Payment confirmed!
       console.log('Payment confirmed:', status);
       stopPaymentPolling();
       onPaymentComplete(status);
     } else if (window.stripePayment.currentAttempt >= window.stripePayment.maxPollingAttempts) {
-      // Polling timeout
       console.warn('Polling timeout reached');
       stopPaymentPolling();
       showPaymentTimeoutError();
     }
-  }, 2000); // Poll every 2 seconds
+  }, 2000);
 }
 
-// Stop polling
 function stopPaymentPolling() {
   if (window.stripePayment.pollingInterval) {
     clearInterval(window.stripePayment.pollingInterval);
@@ -192,7 +247,6 @@ function stopPaymentPolling() {
   }
 }
 
-// UI Update Functions
 function showPaymentPollingUI() {
   const pollingMessage = document.getElementById('paymentPollingMessage');
   if (pollingMessage) {
@@ -209,10 +263,11 @@ function hidePaymentPollingUI() {
 
 function showPaymentCompleteUI() {
   hidePaymentPollingUI();
-  
+
   const paymentComplete = document.getElementById('paymentCompleteMessage');
   const paymentButton = document.getElementById('proceedToPaymentBtn');
-  const submitButton = document.querySelector('button[type="submit"]');
+  const form = getPaymentForm();
+  const submitButton = form ? form.querySelector('button[type="submit"]') : document.querySelector('button[type="submit"]');
 
   if (paymentComplete) {
     paymentComplete.innerHTML = `
@@ -236,7 +291,7 @@ function showPaymentCompleteUI() {
 
 function showPaymentTimeoutError() {
   hidePaymentPollingUI();
-  
+
   const errorMessage = document.getElementById('errorMessage');
   if (errorMessage) {
     errorMessage.textContent = 'Payment confirmation timeout. If you completed payment, please wait a moment and refresh the page. Your payment is safe.';
@@ -244,59 +299,56 @@ function showPaymentTimeoutError() {
   }
 }
 
-// Handle payment button click
 async function handleProceedToPayment(event) {
   event.preventDefault();
 
   try {
-    // Validate form
-    const form = document.getElementById('familySearchForm');
+    const config = getPaymentFlowConfig();
+    const form = getPaymentForm();
+
     if (!form || !form.checkValidity()) {
-      form.reportValidity();
+      if (form) {
+        form.reportValidity();
+      }
       return;
     }
 
-    // Collect form data
-    const formData = {
-      contact_name: document.getElementById('contactName').value.trim(),
-      contact_email: document.getElementById('contactEmail').value.trim(),
-      contact_phone: document.getElementById('contactPhone').value.trim(),
-      starting_person: document.getElementById('startingPerson').value.trim(),
-      title: document.getElementById('familyName').value.trim(),
-      generations: document.getElementById('generations').value,
-      tree_type: document.getElementById('treeType').value,
-      theme: document.getElementById('selectedTheme').value,
-      user_id: window.accessToken ? 'authenticated' : 'guest',
-    };
+    const formData = typeof config.collectCheckoutFormData === 'function'
+      ? config.collectCheckoutFormData()
+      : defaultCollectCheckoutFormData();
 
-    // Store form data for later submission
+    if (!window.stripePayment.requestId) {
+      window.stripePayment.requestId = generateRequestId();
+    }
+
+    const requestId = window.stripePayment.requestId;
+
+    if (typeof config.beforeCreatePaymentSession === 'function') {
+      await config.beforeCreatePaymentSession({ requestId, formData });
+    }
+
     window.stripePayment.formData = formData;
     persistCheckoutFormData(formData);
 
-    // Disable payment button
     const paymentButton = document.getElementById('proceedToPaymentBtn');
     if (paymentButton) {
       paymentButton.disabled = true;
       paymentButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating payment session...';
     }
 
-    // Create payment session
     const sessionData = await createPaymentSession(formData);
 
-    // Redirect to Stripe Checkout
     console.log('Redirecting to Stripe Checkout:', sessionData.sessionUrl);
     window.location.href = sessionData.sessionUrl;
-
   } catch (error) {
     console.error('Error proceeding to payment:', error);
-    
+
     const errorMessage = document.getElementById('errorMessage');
     if (errorMessage) {
       errorMessage.textContent = `Failed to create payment session: ${error.message}`;
       errorMessage.classList.remove('d-none');
     }
 
-    // Re-enable payment button
     const paymentButton = document.getElementById('proceedToPaymentBtn');
     if (paymentButton) {
       paymentButton.disabled = false;
@@ -305,7 +357,19 @@ async function handleProceedToPayment(event) {
   }
 }
 
-// Check URL for payment return
+async function runPostPaymentSubmission(paymentStatus) {
+  const config = getPaymentFlowConfig();
+  const callback =
+    (typeof config.onPaymentConfirmed === 'function' && config.onPaymentConfirmed) ||
+    window.submitFamilyTreeAfterPayment;
+
+  if (typeof callback !== 'function') {
+    throw new Error('Submission handler not initialized. Please refresh and try again.');
+  }
+
+  await callback(paymentStatus);
+}
+
 function checkPaymentReturn() {
   const urlParams = new URLSearchParams(window.location.search);
   const paymentStatus = urlParams.get('payment');
@@ -314,8 +378,7 @@ function checkPaymentReturn() {
   if (paymentStatus === 'success' && requestId) {
     console.log('Payment return detected, request ID:', requestId);
     window.stripePayment.requestId = requestId;
-    
-    // Start polling for payment confirmation
+
     startPaymentPolling(requestId, async (status) => {
       showPaymentCompleteUI();
       console.log('Payment flow complete, starting auto-submit:', status);
@@ -327,10 +390,7 @@ function checkPaymentReturn() {
       window.stripePayment.isSubmittingOrder = true;
 
       try {
-        if (typeof window.submitFamilyTreeAfterPayment !== 'function') {
-          throw new Error('Submission handler not initialized. Please refresh and try again.');
-        }
-        await window.submitFamilyTreeAfterPayment(status);
+        await runPostPaymentSubmission(status);
       } catch (error) {
         console.error('Auto-submission failed after payment:', error);
         const errorMessage = document.getElementById('errorMessage');
@@ -343,7 +403,6 @@ function checkPaymentReturn() {
       }
     });
 
-    // Clean up URL
     window.history.replaceState({}, document.title, window.location.pathname);
   } else if (paymentStatus === 'cancelled') {
     console.log('Payment cancelled by user');
@@ -352,28 +411,27 @@ function checkPaymentReturn() {
       errorMessage.textContent = 'Payment was cancelled. You can try again when ready.';
       errorMessage.classList.remove('d-none');
     }
-    
-    // Clean up URL
+
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 }
 
-// Initialize payment integration on page load
 document.addEventListener('DOMContentLoaded', function() {
-  // Restore form values from pre-checkout state before payment-return handling.
   restoreCheckoutFormDataToInputs();
 
-  // Check if returning from payment
+  const config = getPaymentFlowConfig();
+  if (typeof config.afterRestoreCheckoutFormData === 'function') {
+    config.afterRestoreCheckoutFormData(getPersistedCheckoutFormData());
+  }
+
   checkPaymentReturn();
 
-  // Initialize request ID
   if (!window.stripePayment.requestId) {
     window.stripePayment.requestId = generateRequestId();
     console.log('Generated new request ID:', window.stripePayment.requestId);
   }
 });
 
-// Export functions for use in other scripts
 window.stripePaymentFunctions = {
   generateRequestId,
   createPaymentSession,
@@ -385,4 +443,8 @@ window.stripePaymentFunctions = {
   showPaymentCompleteUI,
   getPersistedCheckoutFormData,
   clearPersistedCheckoutFormData,
+  getPaymentFlowConfig,
 };
+
+// Keep onclick handler compatibility.
+window.handleProceedToPayment = handleProceedToPayment;
