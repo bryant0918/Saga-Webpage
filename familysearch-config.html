@@ -738,6 +738,32 @@
 
         <!-- Custom JS -->
         <script src="price-calculator.js"></script>
+        
+        <!-- Payment Flow Configuration -->
+        <script>
+            // Configure payment flow for FamilySearch page
+            window.paymentFlowConfig = {
+                formId: 'familySearchForm',
+                storageScope: '/familysearch-config.html',
+                afterRestoreCheckoutFormData: function(formData) {
+                    // Restore the theme selector's visual state after payment return
+                    console.log('=== afterRestoreCheckoutFormData Hook ===');
+                    console.log('Restored formData:', formData);
+                    console.log('Theme from formData:', formData?.theme);
+                    
+                    if (formData && formData.theme) {
+                        const selectTheme = window.selectTheme;
+                        console.log('selectTheme function available?', typeof selectTheme === 'function');
+                        if (typeof selectTheme === 'function') {
+                            console.log('Calling selectTheme with:', formData.theme);
+                            selectTheme(formData.theme);
+                        }
+                    }
+                    console.log('===========================================');
+                }
+            };
+        </script>
+        
         <script src="stripe-integration.js"></script>
         <script src="familysearch.js"></script>
         <script>
@@ -900,9 +926,16 @@
                 document.getElementById("selectedTheme").value = themeName;
             }
 
-            // Initialize default theme selection
+            // Initialize default theme selection (only if not returning from payment)
             document.addEventListener("DOMContentLoaded", function () {
-                selectTheme("royal-heritage");
+                const urlParams = new URLSearchParams(window.location.search);
+                const isPaymentReturn = urlParams.get('payment') === 'success';
+                
+                // Only set default theme if not returning from payment
+                // (payment return will restore the theme via afterRestoreCheckoutFormData)
+                if (!isPaymentReturn) {
+                    selectTheme("royal-heritage");
+                }
             });
 
             // Switch User functionality

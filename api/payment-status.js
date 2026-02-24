@@ -50,6 +50,13 @@ router.get('/', async (req, res) => {
 
     // Parse payment data
     const paymentData = JSON.parse(paymentDataStr);
+    const metadata = paymentData && paymentData.metadata ? paymentData.metadata : {};
+    const theme =
+      typeof paymentData.theme === 'string' && paymentData.theme.trim()
+        ? paymentData.theme.trim()
+        : (typeof metadata.theme === 'string' && metadata.theme.trim()
+            ? metadata.theme.trim()
+            : null);
 
     // Return payment status
     return res.status(200).json({
@@ -70,6 +77,7 @@ router.get('/', async (req, res) => {
       customerEmail: paymentData.customerEmail,
       priceId: paymentData.priceId || null,
       productKey: paymentData.productKey || null,
+      theme,
     });
 
   } catch (error) {

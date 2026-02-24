@@ -34,6 +34,7 @@
                   <tr><th scope="row">Family Name</th><td id="familyName">-</td></tr>
                   <tr><th scope="row">Tree Type</th><td id="treeType">-</td></tr>
                   <tr><th scope="row">Generations</th><td id="generations">-</td></tr>
+                  <tr><th scope="row">Design Theme</th><td id="theme">-</td></tr>
                   <tr><th scope="row">Charged Price</th><td id="amountSubtotal">-</td></tr>
                   <tr><th scope="row">Coupons Used</th><td id="couponsUsed">-</td></tr>
                   <tr><th scope="row">Discount</th><td id="amountDiscount">-</td></tr>
@@ -71,6 +72,17 @@
       const generations = params.get('generations') || '-';
       const productKey = params.get('productKey') || '';
       const couponsUsedRaw = params.get('couponsUsed') || '[]';
+      const themeRaw = params.get('theme') || '-';
+
+      console.log('=== Order Confirmation Page Debug ===');
+      console.log('URL Parameters:', {
+        theme: params.get('theme'),
+        requestId: params.get('requestId'),
+        familyName: params.get('familyName'),
+        treeType: params.get('treeType'),
+      });
+      console.log('Theme value received:', themeRaw);
+      console.log('===================================');
 
       const productNameMap = {
         ancestry_4: 'Ancestry Tree - 4 Generations',
@@ -127,6 +139,19 @@
         ? amountSubtotal
         : amountTotal;
       const treeType = treeTypeRaw === 'ancestor' ? 'Ancestry Tree' : treeTypeRaw === 'descendant' ? 'Descendant Tree' : treeTypeRaw;
+      
+      const themeDisplayMap = {
+        'royal-heritage': 'Royal Heritage - Black & Gold',
+        'rustic-roots': 'Rustic Roots - Parchment',
+        'vintage-botanical': 'Vintage Botanical - Green',
+        'ancestral-stone': 'Ancestral Stone - Marble',
+        // Also handle backend-mapped values
+        'black': 'Royal Heritage - Black & Gold',
+        'rustic': 'Rustic Roots - Parchment',
+        'green': 'Vintage Botanical - Green',
+        'stone': 'Ancestral Stone - Marble',
+      };
+      const themeDisplay = themeDisplayMap[themeRaw] || (themeRaw !== '-' ? themeRaw : '-');
 
       document.getElementById('requestId').textContent = requestId;
       document.getElementById('productName').textContent = productName;
@@ -139,6 +164,7 @@
       document.getElementById('familyName').textContent = familyName;
       document.getElementById('treeType').textContent = treeType;
       document.getElementById('generations').textContent = generations;
+      document.getElementById('theme').textContent = themeDisplay;
     })();
   </script>
 </body>
