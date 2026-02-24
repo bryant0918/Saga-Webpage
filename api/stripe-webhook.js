@@ -193,6 +193,7 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
           currency: session.currency,
           couponsUsed: couponsUsed,
           customerEmail: session.customer_email || session.metadata.contact_email,
+          theme: session.metadata.theme || null,
           paymentStatus: session.payment_status,
           priceId: priceId,
           productKey: productKey || session.metadata.product_key || null,

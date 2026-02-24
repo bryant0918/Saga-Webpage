@@ -2,6 +2,67 @@
 // Reused by FamilySearch and GEDCOM pages via window.paymentFlowConfig hooks.
 
 const CHECKOUT_FORM_STORAGE_KEY_BASE = 'familySagaCheckoutFormDataV1';
+const DEFAULT_THEME_SLUG = 'royal-heritage';
+const THEME_SLUG_TO_BACKEND = Object.freeze({
+  'royal-heritage': 'black',
+  'rustic-roots': 'rustic',
+  'vintage-botanical': 'green',
+  'ancestral-stone': 'stone',
+});
+const BACKEND_THEME_TO_SLUG = Object.freeze(
+  Object.fromEntries(
+    Object.entries(THEME_SLUG_TO_BACKEND).map(([slug, backendTheme]) => [backendTheme, slug]),
+  ),
+);
+
+/**
+ * @typedef {'royal-heritage'|'rustic-roots'|'vintage-botanical'|'ancestral-stone'} ThemeSlug
+ * @typedef {'black'|'rustic'|'green'|'stone'} BackendTheme
+ */
+function normalizeThemeSlug(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  if (THEME_SLUG_TO_BACKEND[normalized]) {
+    return normalized;
+  }
+
+  if (BACKEND_THEME_TO_SLUG[normalized]) {
+    return BACKEND_THEME_TO_SLUG[normalized];
+  }
+
+  return null;
+}
+
+function resolveThemeSlug(...candidates) {
+  for (const candidate of candidates) {
+    const resolved = normalizeThemeSlug(candidate);
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  return DEFAULT_THEME_SLUG;
+}
+
+function mapThemeToBackend(value) {
+  const slug = resolveThemeSlug(value);
+  return THEME_SLUG_TO_BACKEND[slug];
+}
+
+window.themeUtils = {
+  DEFAULT_THEME_SLUG,
+  THEME_SLUG_TO_BACKEND,
+  normalizeThemeSlug,
+  resolveThemeSlug,
+  mapThemeToBackend,
+};
 
 window.stripePayment = {
   requestId: null,
@@ -43,7 +104,7 @@ function defaultCollectCheckoutFormData() {
   const startingPersonInput = document.getElementById('startingPerson');
   const rootPointerInput = document.getElementById('rootPointer');
 
-  return {
+  const collectedData = {
     contact_name: getValue('contactName'),
     contact_email: getValue('contactEmail'),
     contact_phone: getValue('contactPhone'),
@@ -53,16 +114,27 @@ function defaultCollectCheckoutFormData() {
     title: getValue('familyName'),
     generations: getValue('generations'),
     tree_type: getValue('treeType'),
-    theme: getValue('selectedTheme') || 'royal-heritage',
+    theme: resolveThemeSlug(getValue('selectedTheme')),
     user_id: window.accessToken ? 'authenticated' : 'guest',
   };
+  
+  console.log('=== defaultCollectCheckoutFormData ===');
+  console.log('Collected theme:', collectedData.theme);
+  console.log('selectedTheme element value:', document.getElementById('selectedTheme')?.value);
+  console.log('Full collected data:', collectedData);
+  console.log('=====================================');
+  
+  return collectedData;
 }
 
 function defaultRestoreCheckoutFormData(formData) {
   const setValue = (id, value) => {
     const element = document.getElementById(id);
     if (element && value !== undefined && value !== null) {
+      console.log(`[setValue] Setting ${id} = ${value}`);
       element.value = value;
+    } else {
+      console.log(`[setValue] SKIPPED ${id} - element exists: ${!!element}, value is valid: ${value !== undefined && value !== null}, value: ${value}`);
     }
   };
 
@@ -87,7 +159,13 @@ function defaultRestoreCheckoutFormData(formData) {
   }
 
   setValue('generations', formData.generations);
-  setValue('selectedTheme', formData.theme);
+  
+  console.log('=== CRITICAL: Theme Restoration ===');
+  console.log('formData.theme:', formData.theme);
+  console.log('About to call setValue for selectedTheme...');
+  setValue('selectedTheme', resolveThemeSlug(formData.theme));
+  console.log('After setValue, selectedTheme input value:', document.getElementById('selectedTheme')?.value);
+  console.log('====================================');
 }
 
 function persistCheckoutFormData(formData) {
@@ -160,7 +238,7 @@ async function createPaymentSession(formData) {
       contactName: formData.contact_name,
       contactPhone: formData.contact_phone,
       startingPerson: formData.starting_person,
-      theme: formData.theme,
+      theme: resolveThemeSlug(formData.theme),
       userId: formData.user_id || 'unknown',
       returnPath:
         typeof config.returnPath === 'string' && config.returnPath.trim()
@@ -317,6 +395,11 @@ async function handleProceedToPayment(event) {
       ? config.collectCheckoutFormData()
       : defaultCollectCheckoutFormData();
 
+    console.log('=== handleProceedToPayment - Collected Form Data ===');
+    console.log('Full formData:', formData);
+    console.log('formData.theme:', formData.theme);
+    console.log('=====================================================');
+
     if (!window.stripePayment.requestId) {
       window.stripePayment.requestId = generateRequestId();
     }
@@ -329,6 +412,8 @@ async function handleProceedToPayment(event) {
 
     window.stripePayment.formData = formData;
     persistCheckoutFormData(formData);
+    
+    console.log('Form data persisted to sessionStorage');
 
     const paymentButton = document.getElementById('proceedToPaymentBtn');
     if (paymentButton) {

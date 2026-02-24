@@ -18,6 +18,21 @@ const PRICE_AMOUNT_MAP = {
   descendant_3: 169,
   descendant_4: 218,
 };
+const ALLOWED_THEME_SLUGS = new Set([
+  'royal-heritage',
+  'rustic-roots',
+  'vintage-botanical',
+  'ancestral-stone',
+]);
+
+function normalizeThemeSlug(theme) {
+  if (typeof theme !== 'string') {
+    return 'royal-heritage';
+  }
+
+  const normalized = theme.trim().toLowerCase();
+  return ALLOWED_THEME_SLUGS.has(normalized) ? normalized : 'royal-heritage';
+}
 
 function getProductKey(treeType, generations) {
   const normalizedTreeType = treeType === 'ancestor' ? 'ancestry' : treeType;
@@ -89,6 +104,7 @@ router.post('/', async (req, res) => {
     const productKey = getProductKey(treeType, generations);
     const priceId = PRICE_MAP[productKey];
     const priceInDollars = PRICE_AMOUNT_MAP[productKey];
+    const normalizedTheme = normalizeThemeSlug(theme);
 
     if (!priceId || !priceInDollars) {
       return res.status(400).json({
@@ -129,7 +145,7 @@ router.post('/', async (req, res) => {
         product_key: productKey,
         price_id: priceId,
         return_path: safeReturnPath,
-        theme: theme || 'royal-heritage',
+        theme: normalizedTheme,
         submission_time: new Date().toISOString(),
       },
     });

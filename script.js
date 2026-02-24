@@ -31,14 +31,35 @@ function getElementValue(id) {
   return typeof element.value === 'string' ? element.value.trim() : element.value;
 }
 
+function resolveThemeSlug(...candidates) {
+  if (window.themeUtils && typeof window.themeUtils.resolveThemeSlug === 'function') {
+    return window.themeUtils.resolveThemeSlug(...candidates);
+  }
+
+  const knownThemes = ['royal-heritage', 'rustic-roots', 'vintage-botanical', 'ancestral-stone'];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string') {
+      const normalized = candidate.trim().toLowerCase();
+      if (knownThemes.includes(normalized)) {
+        return normalized;
+      }
+    }
+  }
+
+  return 'royal-heritage';
+}
+
 function mapThemeToBackend(theme) {
+  if (window.themeUtils && typeof window.themeUtils.mapThemeToBackend === 'function') {
+    return window.themeUtils.mapThemeToBackend(theme);
+  }
+
   const themeMapping = {
     'royal-heritage': 'black',
     'rustic-roots': 'rustic',
     'vintage-botanical': 'green',
     'ancestral-stone': 'stone',
   };
-
   return themeMapping[theme] || 'black';
 }
 
@@ -51,7 +72,7 @@ function collectCheckoutFormData() {
     title: getElementValue('familyName'),
     generations: getElementValue('generations'),
     tree_type: getElementValue('treeType'),
-    theme: getElementValue('selectedTheme') || 'royal-heritage',
+    theme: resolveThemeSlug(getElementValue('selectedTheme')),
     user_id: 'guest',
   };
 }
@@ -77,7 +98,7 @@ function restoreCheckoutFormData(formData) {
   }
 
   setValue('generations', formData.generations);
-  setValue('selectedTheme', formData.theme);
+  setValue('selectedTheme', resolveThemeSlug(formData.theme));
 }
 
 function openGedcomCacheDb() {
@@ -367,10 +388,26 @@ async function submitGedcomTreeRequest(options = {}) {
     return null;
   }
 
+  let persistedTheme = null;
+  try {
+    const persistedData = window.stripePaymentFunctions?.getPersistedCheckoutFormData?.();
+    if (persistedData && persistedData.theme) {
+      persistedTheme = persistedData.theme;
+    }
+  } catch (error) {
+    console.warn('Could not retrieve persisted theme:', error);
+  }
+
+  const resolvedThemeSlug = resolveThemeSlug(
+    paymentStatus && paymentStatus.theme,
+    selectedTheme,
+    persistedTheme,
+  );
+
   showLoading();
 
   try {
-    const theme = mapThemeToBackend(selectedTheme);
+    const theme = mapThemeToBackend(resolvedThemeSlug);
     const fileSizeInMB = gedcomFile.size / (1024 * 1024);
     const isSmallFile = fileSizeInMB < 5;
 
@@ -475,7 +512,7 @@ async function submitGedcomTreeRequest(options = {}) {
       familyName,
       treeType,
       generations,
-      theme: selectedTheme,
+      theme: resolvedThemeSlug,
     };
 
     await clearCachedGedcomFile(requestId);

@@ -183,6 +183,9 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     async function submitFamilyTreeRequest(options = {}) {
+        console.log('=== submitFamilyTreeRequest called ===');
+        console.log('options:', options);
+        
         const {
             skipPaymentVerification = false,
             paymentStatusData = null,
@@ -211,23 +214,23 @@ document.addEventListener("DOMContentLoaded", function () {
         const treeType = document.getElementById("treeType").value;
         const selectedTheme = document.getElementById("selectedTheme").value;
 
-        // Map theme names to backend values
-        const themeMapping = {
-            "royal-heritage": "black",
-            "rustic-roots": "rustic",
-            "vintage-botanical": "green",
-            "ancestral-stone": "stone",
-        };
-        const theme = themeMapping[selectedTheme] || "black";
-
-        // Debug logging for theme
-        console.log('=== Theme Debug (submitFamilyTreeRequest) ===');
-        console.log('selectedTheme from form input:', selectedTheme);
-        console.log('themeMapping lookup result:', themeMapping[selectedTheme]);
-        console.log('final theme value being sent to backend:', theme);
-        console.log('selectedTheme is truthy?', !!selectedTheme);
-        console.log('selectedTheme === "rustic-roots"?', selectedTheme === "rustic-roots");
-        console.log('==============================================');
+        console.log('=== Form Input Values Read ===');
+        console.log('selectedTheme input element exists?', !!document.getElementById("selectedTheme"));
+        console.log('selectedTheme.value:', selectedTheme);
+        console.log('selectedTheme type:', typeof selectedTheme);
+        console.log('selectedTheme length:', selectedTheme?.length);
+        console.log('selectedTheme === "":', selectedTheme === "");
+        console.log('All form values:', {
+            contactName,
+            contactEmail,
+            contactPhone,
+            startingPerson,
+            familyName,
+            generations,
+            treeType,
+            selectedTheme
+        });
+        console.log('==============================');
 
         if (!contactName || !contactEmail || !startingPerson || !familyName) {
             showError("Please fill in all required fields.");
@@ -275,6 +278,43 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
 
+        let persistedTheme = null;
+        try {
+            const persistedData = window.stripePaymentFunctions?.getPersistedCheckoutFormData?.();
+            if (persistedData && persistedData.theme) {
+                persistedTheme = persistedData.theme;
+            }
+        } catch (error) {
+            console.warn("Could not retrieve persisted theme:", error);
+        }
+
+        const fallbackThemeMap = {
+            "royal-heritage": "black",
+            "rustic-roots": "rustic",
+            "vintage-botanical": "green",
+            "ancestral-stone": "stone",
+        };
+        const resolvedThemeSlug =
+            window.themeUtils && typeof window.themeUtils.resolveThemeSlug === "function"
+                ? window.themeUtils.resolveThemeSlug(
+                      paymentStatus && paymentStatus.theme,
+                      selectedTheme,
+                      persistedTheme,
+                  )
+                : (selectedTheme || persistedTheme || "royal-heritage");
+        const backendTheme =
+            window.themeUtils && typeof window.themeUtils.mapThemeToBackend === "function"
+                ? window.themeUtils.mapThemeToBackend(resolvedThemeSlug)
+                : (fallbackThemeMap[resolvedThemeSlug] || "black");
+
+        console.log("Resolved theme values before submission:", {
+            fromPaymentStatus: paymentStatus && paymentStatus.theme,
+            fromFormInput: selectedTheme,
+            fromPersistedData: persistedTheme,
+            resolvedThemeSlug,
+            backendTheme,
+        });
+
         showLoading();
 
         try {
@@ -301,10 +341,17 @@ document.addEventListener("DOMContentLoaded", function () {
             );
             formData.append("familysearch_user", currentPersonName);
             formData.append("submission_time", new Date().toLocaleString());
-            formData.append("theme", theme);
+            
+            // Log the exact theme value being appended
+            console.log('About to append theme to FormData');
+            console.log('selectedTheme value:', selectedTheme);
+            console.log('resolved theme slug:', resolvedThemeSlug);
+            console.log('theme value (mapped):', backendTheme);
+            
+            formData.append("theme", backendTheme);
             
             // Debug: log what's being sent
-            console.log('Form data being sent to backend - theme value:', theme);
+            console.log('Form data being sent to backend - theme value:', backendTheme);
             
             formData.append("access_token", currentAccessToken);
             formData.append("request_id", requestId); // Link to payment
@@ -378,29 +425,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 );
             }
 
-            // Determine the theme to use
-            // Priority: 1) paymentStatus.theme (from backend), 2) form input value, 3) persisted session data, 4) default
-            let finalTheme = selectedTheme;
-            
-            if (paymentStatus && paymentStatus.theme) {
-                finalTheme = paymentStatus.theme;
-            } else if (!selectedTheme || selectedTheme === 'royal-heritage') {
-                // Check persisted session data as fallback
-                try {
-                    const persistedData = window.stripePaymentFunctions?.getPersistedCheckoutFormData?.();
-                    if (persistedData && persistedData.theme) {
-                        finalTheme = persistedData.theme;
-                    }
-                } catch (e) {
-                    console.warn('Could not retrieve persisted theme:', e);
-                }
-            }
-
-            console.log('Final theme being passed to confirmation:', finalTheme, {
-                fromPaymentStatus: paymentStatus?.theme,
-                fromFormInput: selectedTheme,
-            });
-
             const orderDetails = {
                 requestId: requestId,
                 amount:
@@ -444,7 +468,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 familyName: familyName,
                 treeType: treeType,
                 generations: generations,
-                theme: finalTheme,
+                theme: resolvedThemeSlug,
             };
 
             if (redirectOnSuccess) {
