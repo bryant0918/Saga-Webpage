@@ -738,6 +738,25 @@
 
         <!-- Custom JS -->
         <script src="price-calculator.js"></script>
+        
+        <!-- Payment Flow Configuration -->
+        <script>
+            // Configure payment flow for FamilySearch page
+            window.paymentFlowConfig = {
+                formId: 'familySearchForm',
+                storageScope: '/familysearch-config.html',
+                afterRestoreCheckoutFormData: function(formData) {
+                    // Restore the theme selector's visual state after payment return
+                    if (formData && formData.theme) {
+                        const selectTheme = window.selectTheme;
+                        if (typeof selectTheme === 'function') {
+                            selectTheme(formData.theme);
+                        }
+                    }
+                }
+            };
+        </script>
+        
         <script src="stripe-integration.js"></script>
         <script src="familysearch.js"></script>
         <script>
