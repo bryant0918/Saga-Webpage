@@ -220,6 +220,15 @@ document.addEventListener("DOMContentLoaded", function () {
         };
         const theme = themeMapping[selectedTheme] || "black";
 
+        // Debug logging for theme
+        console.log('=== Theme Debug (submitFamilyTreeRequest) ===');
+        console.log('selectedTheme from form input:', selectedTheme);
+        console.log('themeMapping lookup result:', themeMapping[selectedTheme]);
+        console.log('final theme value being sent to backend:', theme);
+        console.log('selectedTheme is truthy?', !!selectedTheme);
+        console.log('selectedTheme === "rustic-roots"?', selectedTheme === "rustic-roots");
+        console.log('==============================================');
+
         if (!contactName || !contactEmail || !startingPerson || !familyName) {
             showError("Please fill in all required fields.");
             return;
@@ -293,6 +302,10 @@ document.addEventListener("DOMContentLoaded", function () {
             formData.append("familysearch_user", currentPersonName);
             formData.append("submission_time", new Date().toLocaleString());
             formData.append("theme", theme);
+            
+            // Debug: log what's being sent
+            console.log('Form data being sent to backend - theme value:', theme);
+            
             formData.append("access_token", currentAccessToken);
             formData.append("request_id", requestId); // Link to payment
             formData.append("payment_verified", "true");
