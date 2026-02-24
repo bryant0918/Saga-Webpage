@@ -365,6 +365,29 @@ document.addEventListener("DOMContentLoaded", function () {
                 );
             }
 
+            // Determine the theme to use
+            // Priority: 1) paymentStatus.theme (from backend), 2) form input value, 3) persisted session data, 4) default
+            let finalTheme = selectedTheme;
+            
+            if (paymentStatus && paymentStatus.theme) {
+                finalTheme = paymentStatus.theme;
+            } else if (!selectedTheme || selectedTheme === 'royal-heritage') {
+                // Check persisted session data as fallback
+                try {
+                    const persistedData = window.stripePaymentFunctions?.getPersistedCheckoutFormData?.();
+                    if (persistedData && persistedData.theme) {
+                        finalTheme = persistedData.theme;
+                    }
+                } catch (e) {
+                    console.warn('Could not retrieve persisted theme:', e);
+                }
+            }
+
+            console.log('Final theme being passed to confirmation:', finalTheme, {
+                fromPaymentStatus: paymentStatus?.theme,
+                fromFormInput: selectedTheme,
+            });
+
             const orderDetails = {
                 requestId: requestId,
                 amount:
@@ -408,7 +431,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 familyName: familyName,
                 treeType: treeType,
                 generations: generations,
-                theme: selectedTheme,
+                theme: finalTheme,
             };
 
             if (redirectOnSuccess) {

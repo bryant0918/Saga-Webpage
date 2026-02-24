@@ -74,6 +74,16 @@
       const couponsUsedRaw = params.get('couponsUsed') || '[]';
       const themeRaw = params.get('theme') || '-';
 
+      console.log('=== Order Confirmation Page Debug ===');
+      console.log('URL Parameters:', {
+        theme: params.get('theme'),
+        requestId: params.get('requestId'),
+        familyName: params.get('familyName'),
+        treeType: params.get('treeType'),
+      });
+      console.log('Theme value received:', themeRaw);
+      console.log('===================================');
+
       const productNameMap = {
         ancestry_4: 'Ancestry Tree - 4 Generations',
         ancestry_5: 'Ancestry Tree - 5 Generations',
@@ -135,6 +145,11 @@
         'rustic-roots': 'Rustic Roots - Parchment',
         'vintage-botanical': 'Vintage Botanical - Green',
         'ancestral-stone': 'Ancestral Stone - Marble',
+        // Also handle backend-mapped values
+        'black': 'Royal Heritage - Black & Gold',
+        'rustic': 'Rustic Roots - Parchment',
+        'green': 'Vintage Botanical - Green',
+        'stone': 'Ancestral Stone - Marble',
       };
       const themeDisplay = themeDisplayMap[themeRaw] || (themeRaw !== '-' ? themeRaw : '-');
 
