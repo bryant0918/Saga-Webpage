@@ -1,7 +1,7 @@
 // script.js - GEDCOM submission flow with shared Stripe payment integration
 
 const GETFORM_ENDPOINT = 'https://getform.io/f/bdrgewgb';
-const TREE_BACKEND_BASE_URL = 'https://family-trees-backend.replit.app';
+const TREE_BACKEND_BASE_URL = 'https://family-trees.replit.app';
 const GEDCOM_FILE_DB_NAME = 'familySagaGedcomPaymentCache';
 const GEDCOM_FILE_STORE = 'pendingGedcomFiles';
 
@@ -535,7 +535,7 @@ async function submitGedcomTreeRequest(options = {}) {
     console.error('Error submitting GEDCOM family tree request:', error);
     if (error && error.message === 'Failed to fetch') {
       showError(
-        'Failed to reach the tree-processing server. This is usually caused by an extension/ad blocker, VPN/proxy, firewall, or DNS/network filtering on this device. Please allow access to family-trees-backend.replit.app and try again.',
+        'Failed to reach the tree-processing server. This is usually caused by an extension/ad blocker, VPN/proxy, firewall, or DNS/network filtering on this device. Please allow access to family-trees.replit.app and try again.',
       );
     } else {
       showError(`Failed to submit request: ${error.message}`);

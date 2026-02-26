@@ -15,7 +15,7 @@ const FS_CONFIG = {
 };
 
 const GETFORM_ENDPOINT = "https://getform.io/f/bdrgewgb";
-const TREE_BACKEND_BASE_URL = "https://family-trees-backend.replit.app";
+const TREE_BACKEND_BASE_URL = "https://family-trees.replit.app";
 
 let pdfBlob = null;
 
@@ -494,7 +494,7 @@ document.addEventListener("DOMContentLoaded", function () {
             console.error("Error submitting family tree request:", error);
             if (error && error.message === "Failed to fetch") {
                 showError(
-                    "Failed to reach the tree-processing server. This is usually caused by an extension/ad blocker, VPN/proxy, firewall, or DNS/network filtering on this device. Please allow access to family-trees-backend.replit.app and try again.",
+                    "Failed to reach the tree-processing server. This is usually caused by an extension/ad blocker, VPN/proxy, firewall, or DNS/network filtering on this device. Please allow access to family-trees.replit.app and try again.",
                 );
             } else {
                 showError(`Failed to submit request: ${error.message}`);
