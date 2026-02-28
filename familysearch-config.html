@@ -845,8 +845,8 @@
                         </button>
                     `;
 
-                        // Auto-fill the Starting Person ID field
-                        if (startingPersonInput) {
+                        // Auto-fill the Starting Person ID field only if empty
+                        if (startingPersonInput && !startingPersonInput.value.trim()) {
                             startingPersonInput.value = currentPerson.id;
                             startingPersonInput.style.backgroundColor =
                                 "#ecfdf5";
@@ -854,19 +854,19 @@
                             startingPersonInput.style.color = "#047857";
                         }
 
-                        // Auto-fill the Family Name field with last name
-                        if (familyNameInput && nameParts.length > 0) {
+                        // Auto-fill the Family Name field with last name only if empty
+                        if (familyNameInput && !familyNameInput.value.trim() && nameParts.length > 0) {
                             familyNameInput.value =
-                                nameParts[nameParts.length - 1]; // Last name
+                                nameParts[nameParts.length - 1];
                             familyNameInput.style.backgroundColor = "#ecfdf5";
                             familyNameInput.style.borderColor = "#10b981";
                             familyNameInput.style.color = "#047857";
                         }
 
-                        // Auto-fill the contact name field with full name
+                        // Auto-fill the contact name field with full name only if empty
                         const contactNameInput =
                             document.getElementById("contactName");
-                        if (contactNameInput) {
+                        if (contactNameInput && !contactNameInput.value.trim()) {
                             contactNameInput.value = currentPerson.name;
                             contactNameInput.style.backgroundColor = "#ecfdf5";
                             contactNameInput.style.borderColor = "#10b981";
