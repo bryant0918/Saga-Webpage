@@ -855,7 +855,7 @@
                         }
 
                         // Auto-fill the Family Name field with last name only if empty
-                        if (familyNameInput && !familyNameInput.value.trim() && nameParts.length > 0) {
+                        if (familyNameInput && nameParts.length > 0) {
                             familyNameInput.value =
                                 nameParts[nameParts.length - 1];
                             familyNameInput.style.backgroundColor = "#ecfdf5";
@@ -866,7 +866,7 @@
                         // Auto-fill the contact name field with full name only if empty
                         const contactNameInput =
                             document.getElementById("contactName");
-                        if (contactNameInput && !contactNameInput.value.trim()) {
+                        if (contactNameInput) {
                             contactNameInput.value = currentPerson.name;
                             contactNameInput.style.backgroundColor = "#ecfdf5";
                             contactNameInput.style.borderColor = "#10b981";
