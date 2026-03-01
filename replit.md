@@ -22,7 +22,7 @@ Preferred communication style: Simple, everyday language.
 - `index.html` — Landing page / home with hero section and OAuth callback handling
 - `source-selection.html` — Choose between FamilySearch login or GEDCOM upload
 - `familysearch.html` — FamilySearch OAuth login page
-- `familysearch-config.html` — Configure tree settings after FamilySearch authentication
+- `familysearch-config.html` — Configure tree settings after FamilySearch authentication. Starting Person ID uses a dropdown populated from `/people/family` endpoint on `family-trees.replit.app` (returns self, parents, kids, siblings, grandparents). Includes "Other" option for manual ID entry. Display format: `<id> (<name>)` with name shown in lighter gray below the dropdown.
 - `gedcom.html` — GEDCOM file upload form
 
 ### JavaScript Modules
