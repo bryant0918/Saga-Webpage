@@ -198,25 +198,35 @@
 
                                 <div class="mb-3">
                                     <label
-                                        for="startingPerson"
+                                        for="startingPersonSelect"
                                         class="form-label"
                                     >
                                         Starting Person ID
                                         <span style="color: #dc3545">*</span>
                                     </label>
-                                    <input
-                                        type="text"
-                                        class="form-control"
-                                        id="startingPerson"
-                                        name="starting_person"
-                                        placeholder="Enter FamilySearch Person ID (e.g., KWQS-BYD)"
-                                        required
-                                    />
+                                    <select
+                                        class="form-select"
+                                        id="startingPersonSelect"
+                                        style="transition: background-color 0.3s, border-color 0.3s;"
+                                    >
+                                        <option value="" disabled selected>Loading family members...</option>
+                                    </select>
+                                    <div id="selectedPersonDisplay" style="display: none; margin-top: 6px; font-size: 0.9rem;">
+                                        <span id="selectedPersonId" style="color: #047857; font-weight: 500;"></span>
+                                        <span id="selectedPersonName" style="color: #9ca3af;"></span>
+                                    </div>
+                                    <div id="manualIdWrapper" style="display: none; margin-top: 8px;">
+                                        <input
+                                            type="text"
+                                            class="form-control"
+                                            id="startingPersonManual"
+                                            placeholder="Enter FamilySearch Person ID (e.g., KWQS-BYD)"
+                                        />
+                                    </div>
+                                    <input type="hidden" id="startingPerson" name="starting_person" required />
                                     <div class="form-text">
-                                        Enter the FamilySearch Person ID to use
-                                        as the root of your family tree. You can
-                                        find this in the URL when viewing a
-                                        person on FamilySearch.
+                                        Select a family member or choose "Other"
+                                        to enter a FamilySearch Person ID manually.
                                     </div>
                                 </div>
 
@@ -845,14 +855,127 @@
                         </button>
                     `;
 
-                        // Auto-fill the Starting Person ID field only if empty
-                        if (startingPersonInput && !startingPersonInput.value.trim()) {
-                            startingPersonInput.value = currentPerson.id;
-                            startingPersonInput.style.backgroundColor =
-                                "#ecfdf5";
-                            startingPersonInput.style.borderColor = "#10b981";
-                            startingPersonInput.style.color = "#047857";
+                        const startingPersonSelect = document.getElementById("startingPersonSelect");
+                        const manualIdWrapper = document.getElementById("manualIdWrapper");
+                        const startingPersonManual = document.getElementById("startingPersonManual");
+                        const selectedPersonDisplay = document.getElementById("selectedPersonDisplay");
+                        const selectedPersonIdSpan = document.getElementById("selectedPersonId");
+                        const selectedPersonNameSpan = document.getElementById("selectedPersonName");
+                        let familyMembersMap = {};
+
+                        function applyAutoFillStyle(el) {
+                            el.style.backgroundColor = "#ecfdf5";
+                            el.style.borderColor = "#10b981";
+                            el.style.color = "#047857";
                         }
+
+                        function updateSelectedDisplay() {
+                            const val = startingPersonSelect.value;
+                            if (val && val !== "__other__" && familyMembersMap[val]) {
+                                selectedPersonIdSpan.textContent = val;
+                                selectedPersonNameSpan.textContent = " (" + familyMembersMap[val] + ")";
+                                selectedPersonDisplay.style.display = "block";
+                            } else {
+                                selectedPersonDisplay.style.display = "none";
+                            }
+                        }
+
+                        function syncHiddenInput() {
+                            if (startingPersonSelect.value === "__other__") {
+                                startingPersonInput.value = startingPersonManual.value.trim();
+                            } else {
+                                startingPersonInput.value = startingPersonSelect.value;
+                            }
+                        }
+
+                        startingPersonSelect.addEventListener("change", function() {
+                            if (this.value === "__other__") {
+                                manualIdWrapper.style.display = "block";
+                                startingPersonManual.focus();
+                                this.style.backgroundColor = "";
+                                this.style.borderColor = "";
+                                this.style.color = "";
+                            } else {
+                                manualIdWrapper.style.display = "none";
+                                startingPersonManual.value = "";
+                                applyAutoFillStyle(this);
+                            }
+                            updateSelectedDisplay();
+                            syncHiddenInput();
+                        });
+
+                        startingPersonManual.addEventListener("input", syncHiddenInput);
+
+                        function populateDropdown(familyMembers) {
+                            startingPersonSelect.innerHTML = "";
+                            familyMembersMap = {};
+
+                            familyMembers.forEach(function(person) {
+                                familyMembersMap[person.id] = person.name;
+                                const opt = document.createElement("option");
+                                opt.value = person.id;
+                                opt.textContent = person.id + " (" + person.name + ")";
+                                if (person.id === currentPerson.id) {
+                                    opt.selected = true;
+                                }
+                                startingPersonSelect.appendChild(opt);
+                            });
+
+                            const otherOpt = document.createElement("option");
+                            otherOpt.value = "__other__";
+                            otherOpt.textContent = "Other (enter ID manually)";
+                            startingPersonSelect.appendChild(otherOpt);
+
+                            applyAutoFillStyle(startingPersonSelect);
+                            updateSelectedDisplay();
+                            syncHiddenInput();
+                        }
+
+                        populateDropdown([{ id: currentPerson.id, name: currentPerson.name }]);
+
+                        (async function() {
+                            try {
+                                console.log("[FamilyDropdown] Fetching family members for root_id:", currentPerson.id);
+                                const familyRes = await fetch("https://family-trees.replit.app/people/family", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                        root_person_id: currentPerson.id,
+                                        access_token: accessToken
+                                    })
+                                });
+                                console.log("[FamilyDropdown] Response status:", familyRes.status);
+                                if (familyRes.ok) {
+                                    const rawData = await familyRes.json();
+                                    console.log("[FamilyDropdown] Raw response:", JSON.stringify(rawData).substring(0, 500));
+
+                                    var familyList = null;
+                                    if (Array.isArray(rawData)) {
+                                        familyList = rawData;
+                                    } else if (rawData && typeof rawData === "object") {
+                                        var arrayKey = Object.keys(rawData).find(function(k) { return Array.isArray(rawData[k]); });
+                                        if (arrayKey) {
+                                            console.log("[FamilyDropdown] Found array under key:", arrayKey);
+                                            familyList = rawData[arrayKey];
+                                        }
+                                    }
+
+                                    if (familyList && familyList.length > 0) {
+                                        console.log("[FamilyDropdown] Populating dropdown with", familyList.length, "people");
+                                        console.log("[FamilyDropdown] First person keys:", Object.keys(familyList[0]));
+                                        console.log("[FamilyDropdown] First person:", JSON.stringify(familyList[0]));
+                                        populateDropdown(familyList);
+                                    } else {
+                                        console.warn("[FamilyDropdown] No family members found in response");
+                                    }
+                                } else {
+                                    var errorText = await familyRes.text();
+                                    console.error("[FamilyDropdown] Request failed:", familyRes.status, errorText.substring(0, 300));
+                                }
+                            } catch (err) {
+                                console.error("[FamilyDropdown] Error fetching family members:", err);
+                            }
+                        })();
 
                         // Auto-fill the Family Name field with last name only if empty
                         if (familyNameInput && nameParts.length > 0) {

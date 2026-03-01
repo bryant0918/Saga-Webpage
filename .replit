@@ -11,6 +11,10 @@ deploymentTarget = "autoscale"
 localPort = 3000
 externalPort = 80
 
+[[ports]]
+localPort = 5000
+externalPort = 80
+
 [agent]
 expertMode = true
 
@@ -30,10 +34,10 @@ args = "Start Node Server"
 name = "Start Node Server"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "webview"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node server.js"
-waitForPort = 3000
-
-[workflows.workflow.metadata]
-outputType = "webview"
+waitForPort = 5000
