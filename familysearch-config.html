@@ -935,22 +935,45 @@
 
                         (async function() {
                             try {
+                                console.log("[FamilyDropdown] Fetching family members for root_id:", currentPerson.id);
                                 const familyRes = await fetch("https://family-trees.replit.app/people/family", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
                                     body: JSON.stringify({
-                                        root_person_id: currentPerson.id,
+                                        root_id: currentPerson.id,
                                         access_token: accessToken
                                     })
                                 });
+                                console.log("[FamilyDropdown] Response status:", familyRes.status);
                                 if (familyRes.ok) {
-                                    const familyData = await familyRes.json();
-                                    if (Array.isArray(familyData) && familyData.length > 0) {
-                                        populateDropdown(familyData);
+                                    const rawData = await familyRes.json();
+                                    console.log("[FamilyDropdown] Raw response:", JSON.stringify(rawData).substring(0, 500));
+
+                                    var familyList = null;
+                                    if (Array.isArray(rawData)) {
+                                        familyList = rawData;
+                                    } else if (rawData && typeof rawData === "object") {
+                                        var arrayKey = Object.keys(rawData).find(function(k) { return Array.isArray(rawData[k]); });
+                                        if (arrayKey) {
+                                            console.log("[FamilyDropdown] Found array under key:", arrayKey);
+                                            familyList = rawData[arrayKey];
+                                        }
                                     }
+
+                                    if (familyList && familyList.length > 0) {
+                                        console.log("[FamilyDropdown] Populating dropdown with", familyList.length, "people");
+                                        console.log("[FamilyDropdown] First person keys:", Object.keys(familyList[0]));
+                                        console.log("[FamilyDropdown] First person:", JSON.stringify(familyList[0]));
+                                        populateDropdown(familyList);
+                                    } else {
+                                        console.warn("[FamilyDropdown] No family members found in response");
+                                    }
+                                } else {
+                                    var errorText = await familyRes.text();
+                                    console.error("[FamilyDropdown] Request failed:", familyRes.status, errorText.substring(0, 300));
                                 }
                             } catch (err) {
-                                console.warn("Could not fetch family members:", err);
+                                console.error("[FamilyDropdown] Error fetching family members:", err);
                             }
                         })();
 
