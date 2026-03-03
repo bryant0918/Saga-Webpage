@@ -232,8 +232,12 @@ async function prepareGedcomFileForCheckout({ requestId }) {
   await cacheGedcomFile(requestId, gedcomFile);
 }
 
-async function hydrateGedcomFileDisplayFromCache() {
+async function hydrateGedcomFileDisplayFromCache(formData) {
   try {
+    if (formData && formData.theme && typeof window.selectTheme === 'function') {
+      window.selectTheme(formData.theme);
+    }
+
     const params = new URLSearchParams(window.location.search);
     const requestId = params.get('request_id') || (window.stripePayment && window.stripePayment.requestId);
     if (!requestId) return;
