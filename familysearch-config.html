@@ -31,6 +31,37 @@
             content="Configure your FamilySearch family tree to create your luxury family chart."
         />
         <link rel="icon" type="image/png" href="assets/saga.png" />
+        <style>
+            .hint-circle-btn {
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                border: 1px solid var(--gold-primary);
+                background-color: transparent;
+                color: var(--gold-primary);
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 0.75rem;
+                line-height: 1;
+                padding: 0;
+                transition: all 0.2s ease;
+            }
+
+            .hint-circle-btn:hover,
+            .hint-circle-btn:focus {
+                background-color: var(--gold-primary);
+                color: var(--deep-black);
+                box-shadow: 0 0 0 0.2rem rgba(255, 215, 0, 0.18);
+            }
+
+            .hint-preview-image {
+                width: 100%;
+                height: auto;
+                border-radius: 8px;
+                border: 1px solid rgba(255, 215, 0, 0.35);
+            }
+        </style>
     </head>
     <body>
         <!-- Navigation -->
@@ -197,13 +228,25 @@
                                 </h3>
 
                                 <div class="mb-3">
-                                    <label
-                                        for="startingPersonSelect"
-                                        class="form-label"
-                                    >
-                                        Starting Person ID
-                                        <span style="color: #dc3545">*</span>
-                                    </label>
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <label
+                                            for="startingPersonSelect"
+                                            class="form-label mb-0"
+                                        >
+                                            Starting Person ID
+                                            <span style="color: #dc3545">*</span>
+                                        </label>
+                                        <button
+                                            type="button"
+                                            class="hint-circle-btn"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#startingPersonHintModal"
+                                            aria-label="Show starting person help"
+                                            title="How to choose and find a Starting Person ID"
+                                        >
+                                            <i class="fas fa-question"></i>
+                                        </button>
+                                    </div>
                                     <select
                                         class="form-select"
                                         id="startingPersonSelect"
@@ -227,6 +270,7 @@
                                     <div class="form-text">
                                         Select a family member or choose "Other"
                                         to enter a FamilySearch Person ID manually.
+                                        Click the <strong>?</strong> for examples and ID lookup help.
                                     </div>
                                 </div>
 
@@ -742,6 +786,71 @@
                 </p>
             </div>
         </footer>
+
+        <div
+            class="modal fade"
+            id="startingPersonHintModal"
+            tabindex="-1"
+            aria-labelledby="startingPersonHintModalLabel"
+            aria-hidden="true"
+        >
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content" style="background-color: var(--primary-black); border-color: var(--gold-primary);">
+                    <div class="modal-header" style="border-color: var(--light-black);">
+                        <h5 class="modal-title" id="startingPersonHintModalLabel" style="color: var(--gold-primary);">
+                            Starting Person ID Help
+                        </h5>
+                        <button
+                            type="button"
+                            class="btn-close btn-close-white"
+                            data-bs-dismiss="modal"
+                            aria-label="Close"
+                        ></button>
+                    </div>
+                    <div class="modal-body">
+                        <p style="color: var(--text-gray);">
+                            Your starting person appears in a different place based on tree type.
+                            Use these examples to confirm you selected the right person:
+                        </p>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <div class="p-2 rounded" style="background-color: rgba(255, 215, 0, 0.05);">
+                                    <img
+                                        src="assets/starting_person_hint_ancestor.png"
+                                        alt="Ancestor chart example showing starting person location"
+                                        class="hint-preview-image mb-2"
+                                    />
+                                    <p class="mb-0" style="font-size: 0.9rem; color: var(--text-gray);">
+                                        <strong style="color: var(--gold-primary);">Ancestor Tree:</strong>
+                                        The selected starting person is highlighted in this layout.
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="p-2 rounded" style="background-color: rgba(255, 215, 0, 0.05);">
+                                    <img
+                                        src="assets/starting_person_hint_descendant.png"
+                                        alt="Descendant chart example showing starting person location"
+                                        class="hint-preview-image mb-2"
+                                    />
+                                    <p class="mb-0" style="font-size: 0.9rem; color: var(--text-gray);">
+                                        <strong style="color: var(--gold-primary);">Descendant Tree:</strong>
+                                        The selected starting person is highlighted in this layout.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <h6 style="color: var(--gold-primary);">If your person is not in the dropdown</h6>
+                        <ol class="mb-0" style="color: var(--text-gray);">
+                            <li>Open <a href="https://www.familysearch.org" target="_blank" rel="noopener noreferrer">FamilySearch.org</a> and go to the person’s detail page.</li>
+                            <li>Copy the Person ID from the end of the URL (example: <code>KWQS-BYD</code> from <code>/tree/person/details/KWQS-BYD</code>).</li>
+                            <li>Back on this form, choose <strong>Other (enter ID manually)</strong> in the Starting Person dropdown.</li>
+                            <li>Paste or type that Person ID into the text box that appears.</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Bootstrap JS -->
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
