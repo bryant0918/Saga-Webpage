@@ -752,9 +752,14 @@
                 document.getElementById("selectedTheme").value = themeName;
             }
 
-            // Initialize default theme selection
+            window.selectTheme = selectTheme;
+
             document.addEventListener("DOMContentLoaded", function () {
-                selectTheme("royal-heritage");
+                const urlParams = new URLSearchParams(window.location.search);
+                const isPaymentReturn = urlParams.get('payment') === 'success';
+                if (!isPaymentReturn) {
+                    selectTheme("royal-heritage");
+                }
             });
 
             // Handle tree type changes to update generations options

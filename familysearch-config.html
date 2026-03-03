@@ -861,15 +861,21 @@
         <!-- Payment Flow Configuration -->
         <script>
             // Configure payment flow for FamilySearch page
+            window._restoredStartingPerson = null;
+
             window.paymentFlowConfig = {
                 formId: 'familySearchForm',
                 storageScope: '/familysearch-config.html',
                 afterRestoreCheckoutFormData: function(formData) {
-                    // Restore the theme selector's visual state after payment return
                     console.log('=== afterRestoreCheckoutFormData Hook ===');
                     console.log('Restored formData:', formData);
                     console.log('Theme from formData:', formData?.theme);
                     
+                    if (formData && formData.starting_person) {
+                        window._restoredStartingPerson = formData.starting_person;
+                        console.log('Restored starting person:', window._restoredStartingPerson);
+                    }
+
                     if (formData && formData.theme) {
                         const selectTheme = window.selectTheme;
                         console.log('selectTheme function available?', typeof selectTheme === 'function');
@@ -1019,13 +1025,17 @@
                             startingPersonSelect.innerHTML = "";
                             familyMembersMap = {};
 
+                            var targetId = window._restoredStartingPerson || currentPerson.id;
+                            var foundTarget = false;
+
                             familyMembers.forEach(function(person) {
                                 familyMembersMap[person.id] = person.name;
                                 const opt = document.createElement("option");
                                 opt.value = person.id;
                                 opt.textContent = person.id + " (" + person.name + ")";
-                                if (person.id === currentPerson.id) {
+                                if (person.id === targetId) {
                                     opt.selected = true;
+                                    foundTarget = true;
                                 }
                                 startingPersonSelect.appendChild(opt);
                             });
@@ -1035,9 +1045,17 @@
                             otherOpt.textContent = "Other (enter ID manually)";
                             startingPersonSelect.appendChild(otherOpt);
 
+                            if (window._restoredStartingPerson && !foundTarget) {
+                                otherOpt.selected = true;
+                                manualIdWrapper.style.display = "block";
+                                startingPersonManual.value = window._restoredStartingPerson;
+                                console.log("[FamilyDropdown] Restored person not in list, using Other:", window._restoredStartingPerson);
+                            }
+
                             applyAutoFillStyle(startingPersonSelect);
                             updateSelectedDisplay();
                             syncHiddenInput();
+                            console.log("[FamilyDropdown] After populate, hidden input value:", startingPersonInput.value);
                         }
 
                         populateDropdown([{ id: currentPerson.id, name: currentPerson.name }]);
