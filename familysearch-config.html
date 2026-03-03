@@ -227,6 +227,7 @@
                                     <div class="form-text">
                                         Select a family member or choose "Other"
                                         to enter a FamilySearch Person ID manually.
+                                        Click the <strong>?</strong> for examples and ID lookup help.
                                     </div>
                                 </div>
 
@@ -745,6 +746,7 @@
 
         <!-- Bootstrap JS -->
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="person-id-hint.js"></script>
 
         <!-- Custom JS -->
         <script src="price-calculator.js"></script>
@@ -785,6 +787,24 @@
         <script>
             // Check if user is authenticated when page loads
             document.addEventListener("DOMContentLoaded", async function () {
+                if (window.PersonIdHint && typeof window.PersonIdHint.attach === "function") {
+                    window.PersonIdHint.attach({
+                        fieldId: "startingPersonSelect",
+                        modalTitle: "Starting Person ID Help",
+                        introText: "Your starting person appears in a different place based on tree type. Use these examples to confirm you selected the right person.",
+                        instructionsHeading: "If your person is not in the dropdown",
+                        instructionsHtml:
+                            '<ol class="mb-0">' +
+                            '<li>Open <a href="https://www.familysearch.org" target="_blank" rel="noopener noreferrer">FamilySearch.org</a> and go to the person\'s detail page.</li>' +
+                            '<li>Copy the Person ID from the end of the URL (example: <code>KWQS-BYD</code> from <code>/tree/person/details/KWQS-BYD</code>).</li>' +
+                            '<li>Choose <strong>Other (enter ID manually)</strong> in the Starting Person dropdown on this page.</li>' +
+                            '<li>Paste or type that Person ID into the text box that appears.</li>' +
+                            "</ol>",
+                        buttonAriaLabel: "Show starting person help",
+                        buttonTitle: "How to choose and find a Starting Person ID",
+                    });
+                }
+
                 const accessToken = getCookie("fs_access_token");
                 if (!accessToken) {
                     // No token found, redirect to login
