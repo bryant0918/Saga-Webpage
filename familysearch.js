@@ -183,9 +183,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     async function submitFamilyTreeRequest(options = {}) {
-        console.log('=== submitFamilyTreeRequest called ===');
-        console.log('options:', options);
-        
         const {
             skipPaymentVerification = false,
             paymentStatusData = null,
@@ -198,6 +195,8 @@ document.addEventListener("DOMContentLoaded", function () {
             descendant_3: 169,
             descendant_4: 218,
         };
+
+        const isPaymentEnabled = window.paymentFlowEnabled !== false;
 
         const contactName = document.getElementById("contactName").value.trim();
         const contactEmail = document
@@ -214,67 +213,47 @@ document.addEventListener("DOMContentLoaded", function () {
         const treeType = document.getElementById("treeType").value;
         const selectedTheme = document.getElementById("selectedTheme").value;
 
-        console.log('=== Form Input Values Read ===');
-        console.log('selectedTheme input element exists?', !!document.getElementById("selectedTheme"));
-        console.log('selectedTheme.value:', selectedTheme);
-        console.log('selectedTheme type:', typeof selectedTheme);
-        console.log('selectedTheme length:', selectedTheme?.length);
-        console.log('selectedTheme === "":', selectedTheme === "");
-        console.log('All form values:', {
-            contactName,
-            contactEmail,
-            contactPhone,
-            startingPerson,
-            familyName,
-            generations,
-            treeType,
-            selectedTheme
-        });
-        console.log('==============================');
-
         if (!contactName || !contactEmail || !startingPerson || !familyName) {
             showError("Please fill in all required fields.");
             return;
         }
 
-        // Get access token from cookie or global variable
-        const currentAccessToken = window.accessToken; //|| getCookie("fs_access_token");
+        const currentAccessToken = window.accessToken;
         if (!currentAccessToken) {
             showError("Not authenticated. Please log in again.");
             return;
         }
 
-        // CRITICAL: Verify payment before submission
-        const requestId = window.stripePayment.requestId;
-        if (!requestId) {
-            const missingRequestIdError = new Error(
-                "Payment verification failed: No request ID found. Please refresh and try again.",
-            );
-            showError(missingRequestIdError.message);
-            if (throwOnError) throw missingRequestIdError;
-            return null;
-        }
-
+        let requestId = null;
         let paymentStatus = paymentStatusData;
 
-        // Check payment status one final time before submission
-        if (!skipPaymentVerification) {
-            try {
-                paymentStatus = await window.stripePaymentFunctions.pollPaymentStatus(requestId);
-                if (!paymentStatus.paid) {
-                    const notPaidError = new Error(
-                        "Payment not confirmed. Please complete payment before submitting.",
-                    );
-                    showError(notPaidError.message);
-                    if (throwOnError) throw notPaidError;
+        if (isPaymentEnabled) {
+            requestId = window.stripePayment.requestId;
+            if (!requestId) {
+                const missingRequestIdError = new Error(
+                    "Payment verification failed: No request ID found. Please refresh and try again.",
+                );
+                showError(missingRequestIdError.message);
+                if (throwOnError) throw missingRequestIdError;
+                return null;
+            }
+
+            if (!skipPaymentVerification) {
+                try {
+                    paymentStatus = await window.stripePaymentFunctions.pollPaymentStatus(requestId);
+                    if (!paymentStatus.paid) {
+                        const notPaidError = new Error(
+                            "Payment not confirmed. Please complete payment before submitting.",
+                        );
+                        showError(notPaidError.message);
+                        if (throwOnError) throw notPaidError;
+                        return null;
+                    }
+                } catch (error) {
+                    showError("Payment verification failed. Please try again or contact support.");
+                    if (throwOnError) throw error;
                     return null;
                 }
-                console.log("Payment verified before submission:", paymentStatus);
-            } catch (error) {
-                showError("Payment verification failed. Please try again or contact support.");
-                console.error("Payment verification error:", error);
-                if (throwOnError) throw error;
-                return null;
             }
         }
 
@@ -307,25 +286,15 @@ document.addEventListener("DOMContentLoaded", function () {
                 ? window.themeUtils.mapThemeToBackend(resolvedThemeSlug)
                 : (fallbackThemeMap[resolvedThemeSlug] || "black");
 
-        console.log("Resolved theme values before submission:", {
-            fromPaymentStatus: paymentStatus && paymentStatus.theme,
-            fromFormInput: selectedTheme,
-            fromPersistedData: persistedTheme,
-            resolvedThemeSlug,
-            backendTheme,
-        });
-
         showLoading();
 
         try {
-            // Get current person info for the form
             const currentPerson =
                 await window.fetchCurrentPerson(currentAccessToken);
             const currentPersonName = currentPerson
                 ? currentPerson.name
                 : "Unknown";
 
-            // Submit to GetForm with request_id for tracking
             const formData = new FormData();
             formData.append("contact_name", contactName);
             formData.append("contact_email", contactEmail);
@@ -341,53 +310,44 @@ document.addEventListener("DOMContentLoaded", function () {
             );
             formData.append("familysearch_user", currentPersonName);
             formData.append("submission_time", new Date().toLocaleString());
-            
-            // Log the exact theme value being appended
-            console.log('About to append theme to FormData');
-            console.log('selectedTheme value:', selectedTheme);
-            console.log('resolved theme slug:', resolvedThemeSlug);
-            console.log('theme value (mapped):', backendTheme);
-            
             formData.append("theme", backendTheme);
-            
-            // Debug: log what's being sent
-            console.log('Form data being sent to backend - theme value:', backendTheme);
-            
             formData.append("access_token", currentAccessToken);
-            formData.append("request_id", requestId); // Link to payment
-            formData.append("payment_verified", "true");
-            formData.append(
-                "amount_subtotal",
-                paymentStatus && paymentStatus.amountSubtotal != null
-                    ? String(paymentStatus.amountSubtotal)
-                    : "",
-            );
-            formData.append(
-                "coupons_used",
-                paymentStatus && Array.isArray(paymentStatus.couponsUsed)
-                    ? JSON.stringify(paymentStatus.couponsUsed)
-                    : "[]",
-            );
-            formData.append(
-                "amount_discount",
-                paymentStatus && paymentStatus.amountDiscount != null
-                    ? String(paymentStatus.amountDiscount)
-                    : "",
-            );
-            formData.append(
-                "amount_paid",
-                paymentStatus && paymentStatus.amountPaid != null
-                    ? String(paymentStatus.amountPaid)
-                    : "",
-            );
-            formData.append(
-                "amount_due",
-                paymentStatus && paymentStatus.amountDue != null
-                    ? String(paymentStatus.amountDue)
-                    : "",
-            );
 
-            // Best-effort CRM/lead capture; do not block paid request submission.
+            if (isPaymentEnabled) {
+                formData.append("request_id", requestId);
+                formData.append("payment_verified", "true");
+                formData.append(
+                    "amount_subtotal",
+                    paymentStatus && paymentStatus.amountSubtotal != null
+                        ? String(paymentStatus.amountSubtotal)
+                        : "",
+                );
+                formData.append(
+                    "coupons_used",
+                    paymentStatus && Array.isArray(paymentStatus.couponsUsed)
+                        ? JSON.stringify(paymentStatus.couponsUsed)
+                        : "[]",
+                );
+                formData.append(
+                    "amount_discount",
+                    paymentStatus && paymentStatus.amountDiscount != null
+                        ? String(paymentStatus.amountDiscount)
+                        : "",
+                );
+                formData.append(
+                    "amount_paid",
+                    paymentStatus && paymentStatus.amountPaid != null
+                        ? String(paymentStatus.amountPaid)
+                        : "",
+                );
+                formData.append(
+                    "amount_due",
+                    paymentStatus && paymentStatus.amountDue != null
+                        ? String(paymentStatus.amountDue)
+                        : "",
+                );
+            }
+
             try {
                 const getformResponse = await fetch(GETFORM_ENDPOINT, {
                     method: "POST",
@@ -402,17 +362,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 console.warn("GetForm submission skipped due to network error:", getformError);
             }
 
-            // Only send access token to our backend
-            // formData.append("access_token", currentAccessToken);
             const endpoint =
                 treeType === "ancestor"
                     ? "/build_tree"
                     : "/build_descendant_tree";
-            console.log("Submitting to endpoint:", endpoint);
             const response = await fetch(
                 `${TREE_BACKEND_BASE_URL}${endpoint}`,
                 {
-                    // const response = await fetch(`http://127.0.0.1:10000${endpoint}`, {
                     method: "POST",
                     body: formData,
                 },
@@ -426,41 +382,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             const orderDetails = {
-                requestId: requestId,
-                amount:
-                    paymentStatus && paymentStatus.amount != null
-                        ? paymentStatus.amount
-                        : (paymentStatus &&
-                              paymentStatus.productKey &&
-                              amountByProductKey[paymentStatus.productKey]) ||
-                          "",
-                amountSubtotal:
-                    paymentStatus && paymentStatus.amountSubtotal != null
-                        ? paymentStatus.amountSubtotal
-                        : "",
-                amountDiscount:
-                    paymentStatus && paymentStatus.amountDiscount != null
-                        ? paymentStatus.amountDiscount
-                        : "",
-                amountTotal:
-                    paymentStatus && paymentStatus.amountTotal != null
-                        ? paymentStatus.amountTotal
-                        : "",
-                amountPaid:
-                    paymentStatus && paymentStatus.amountPaid != null
-                        ? paymentStatus.amountPaid
-                        : "",
-                amountDue:
-                    paymentStatus && paymentStatus.amountDue != null
-                        ? paymentStatus.amountDue
-                        : "",
-                couponsUsed:
-                    paymentStatus && Array.isArray(paymentStatus.couponsUsed)
-                        ? JSON.stringify(paymentStatus.couponsUsed)
-                        : "[]",
-                currency: paymentStatus && paymentStatus.currency ? paymentStatus.currency : "",
-                priceId: paymentStatus && paymentStatus.priceId ? paymentStatus.priceId : "",
-                productKey: paymentStatus && paymentStatus.productKey ? paymentStatus.productKey : "",
+                requestId: requestId || '',
                 customerEmail: paymentStatus && paymentStatus.customerEmail
                     ? paymentStatus.customerEmail
                     : contactEmail,
@@ -470,6 +392,43 @@ document.addEventListener("DOMContentLoaded", function () {
                 generations: generations,
                 theme: resolvedThemeSlug,
             };
+
+            if (isPaymentEnabled) {
+                orderDetails.amount =
+                    paymentStatus && paymentStatus.amount != null
+                        ? paymentStatus.amount
+                        : (paymentStatus &&
+                              paymentStatus.productKey &&
+                              amountByProductKey[paymentStatus.productKey]) ||
+                          "";
+                orderDetails.amountSubtotal =
+                    paymentStatus && paymentStatus.amountSubtotal != null
+                        ? paymentStatus.amountSubtotal
+                        : "";
+                orderDetails.amountDiscount =
+                    paymentStatus && paymentStatus.amountDiscount != null
+                        ? paymentStatus.amountDiscount
+                        : "";
+                orderDetails.amountTotal =
+                    paymentStatus && paymentStatus.amountTotal != null
+                        ? paymentStatus.amountTotal
+                        : "";
+                orderDetails.amountPaid =
+                    paymentStatus && paymentStatus.amountPaid != null
+                        ? paymentStatus.amountPaid
+                        : "";
+                orderDetails.amountDue =
+                    paymentStatus && paymentStatus.amountDue != null
+                        ? paymentStatus.amountDue
+                        : "";
+                orderDetails.couponsUsed =
+                    paymentStatus && Array.isArray(paymentStatus.couponsUsed)
+                        ? JSON.stringify(paymentStatus.couponsUsed)
+                        : "[]";
+                orderDetails.currency = paymentStatus && paymentStatus.currency ? paymentStatus.currency : "";
+                orderDetails.priceId = paymentStatus && paymentStatus.priceId ? paymentStatus.priceId : "";
+                orderDetails.productKey = paymentStatus && paymentStatus.productKey ? paymentStatus.productKey : "";
+            }
 
             if (redirectOnSuccess) {
                 if (

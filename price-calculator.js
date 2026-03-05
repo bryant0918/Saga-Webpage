@@ -31,6 +31,10 @@ function getButtonKey(treeType, generations) {
 }
 
 function updatePriceDisplay() {
+    if (window.paymentFlowEnabled === false) {
+        return;
+    }
+
     var treeTypeSelect = document.getElementById('treeType');
     var generationsSelect = document.getElementById('generations');
     var priceDisplay = document.getElementById('totalPrice');

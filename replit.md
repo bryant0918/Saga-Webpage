@@ -39,16 +39,15 @@ Preferred communication style: Simple, everyday language.
 - Note: The SecurityPolicy.md mandates HttpOnly/Secure cookies, but the current client-side implementation uses `document.cookie` which cannot set HttpOnly. This is an area for improvement — moving token handling server-side would be needed for full compliance.
 
 ### Pricing & Payments
+- **Payment flow is toggled via `PAYMENT_FLOW` environment variable** (set to `"true"` or `"false"`)
+- When `PAYMENT_FLOW=false`: payment UI (price display, Stripe buttons, payment polling) is hidden; forms submit directly to the backend; pricing fields are omitted from form data and order details
+- When `PAYMENT_FLOW=true` (default): full Stripe payment flow is active — users must complete payment before submission
+- The toggle is served via `GET /api/config` endpoint (returns `{ paymentFlow: true/false }`) and consumed by frontend scripts at page load
+- All payment code is preserved in place (not deleted) — `stripe-integration.js`, `price-calculator.js`, and payment HTML sections remain in the codebase
 - Two tree types: **Ancestor** (base $149) and **Descendant** (base $169)
 - Additional generations cost $49 extra
-- **Stripe Buy Buttons** handle payment (live publishable key in `price-calculator.js`)
-- 4 unique Stripe Buy Button IDs mapped to each pricing option in `STRIPE_BUY_BUTTONS` object in `price-calculator.js`:
-  - `ancestor_5` — Ancestor Tree, 5 Generations ($198)
-  - `ancestor_4` — Ancestor Tree, 4 Generations ($149)
-  - `descendant_4` — Descendant Tree, 4 Generations ($218)
-  - `descendant_3` — Descendant Tree, 3 Generations ($169)
-- Buy buttons are dynamically swapped in `familysearch-config.html` based on the user's tree type and generation selection
-- Note: Currently ancestor_4, descendant_4, and descendant_3 use placeholder button IDs (same as ancestor_5) — need to be replaced with real Stripe Buy Button IDs
+- **Stripe Checkout** handles payment via `create-payment-session` API endpoint
+- Pricing logic in `price-calculator.js`, payment session creation in `api/create-payment-session.js`
 
 ### Tree Themes
 Four visual themes mapped to backend values:

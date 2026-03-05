@@ -456,6 +456,10 @@ async function runPostPaymentSubmission(paymentStatus) {
 }
 
 function checkPaymentReturn() {
+  if (window.paymentFlowEnabled === false) {
+    return;
+  }
+
   const urlParams = new URLSearchParams(window.location.search);
   const paymentStatus = urlParams.get('payment');
   const requestId = urlParams.get('request_id');
