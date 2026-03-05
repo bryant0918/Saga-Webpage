@@ -13,6 +13,11 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes - Mount before static files to ensure they're handled first
+app.get('/api/config', (req, res) => {
+  const paymentFlow = (process.env.PAYMENT_FLOW || 'true').toLowerCase() === 'true';
+  res.json({ paymentFlow });
+});
+
 // Note: These routes use their own body parsing as needed
 app.use('/api/create-payment-session', require('./api/create-payment-session'));
 app.use('/api/payment-status', require('./api/payment-status'));

@@ -35,11 +35,11 @@
                   <tr><th scope="row">Tree Type</th><td id="treeType">-</td></tr>
                   <tr><th scope="row">Generations</th><td id="generations">-</td></tr>
                   <tr><th scope="row">Design Theme</th><td id="theme">-</td></tr>
-                  <tr><th scope="row">Charged Price</th><td id="amountSubtotal">-</td></tr>
-                  <tr><th scope="row">Coupons Used</th><td id="couponsUsed">-</td></tr>
-                  <tr><th scope="row">Discount</th><td id="amountDiscount">-</td></tr>
-                  <tr><th scope="row">Amount Paid</th><td id="amountPaid">-</td></tr>
-                  <tr><th scope="row">Amount Due</th><td id="amountDue">-</td></tr>
+                  <tr class="payment-row"><th scope="row">Charged Price</th><td id="amountSubtotal">-</td></tr>
+                  <tr class="payment-row"><th scope="row">Coupons Used</th><td id="couponsUsed">-</td></tr>
+                  <tr class="payment-row"><th scope="row">Discount</th><td id="amountDiscount">-</td></tr>
+                  <tr class="payment-row"><th scope="row">Amount Paid</th><td id="amountPaid">-</td></tr>
+                  <tr class="payment-row"><th scope="row">Amount Due</th><td id="amountDue">-</td></tr>
                 </tbody>
               </table>
             </div>
@@ -55,7 +55,21 @@
   </main>
 
   <script>
-    (function () {
+    (async function () {
+      var paymentFlowEnabled = true;
+      try {
+        var configRes = await fetch('/api/config');
+        var configData = await configRes.json();
+        paymentFlowEnabled = configData.paymentFlow;
+      } catch (e) {
+        paymentFlowEnabled = true;
+      }
+
+      if (!paymentFlowEnabled) {
+        document.querySelectorAll('.payment-row').forEach(function(row) {
+          row.style.display = 'none';
+        });
+      }
       const params = new URLSearchParams(window.location.search);
 
       const requestId = params.get('requestId') || '-';

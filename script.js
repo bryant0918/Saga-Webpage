@@ -326,6 +326,8 @@ async function submitGedcomTreeRequest(options = {}) {
     throwOnError = false,
   } = options;
 
+  const isPaymentEnabled = window.paymentFlowEnabled !== false;
+
   const contactName = getElementValue('contactName');
   const contactEmail = getElementValue('contactEmail');
   const contactPhone = getElementValue('contactPhone');
@@ -349,29 +351,32 @@ async function submitGedcomTreeRequest(options = {}) {
     return null;
   }
 
-  const requestId = window.stripePayment && window.stripePayment.requestId;
-  if (!requestId) {
-    const error = new Error('Payment verification failed: No request ID found. Please refresh and try again.');
-    showError(error.message);
-    if (throwOnError) throw error;
-    return null;
-  }
-
+  let requestId = null;
   let paymentStatus = paymentStatusData;
 
-  if (!skipPaymentVerification) {
-    try {
-      paymentStatus = await window.stripePaymentFunctions.pollPaymentStatus(requestId);
-      if (!paymentStatus.paid) {
-        const error = new Error('Payment not confirmed. Please complete payment before submitting.');
-        showError(error.message);
+  if (isPaymentEnabled) {
+    requestId = window.stripePayment && window.stripePayment.requestId;
+    if (!requestId) {
+      const error = new Error('Payment verification failed: No request ID found. Please refresh and try again.');
+      showError(error.message);
+      if (throwOnError) throw error;
+      return null;
+    }
+
+    if (!skipPaymentVerification) {
+      try {
+        paymentStatus = await window.stripePaymentFunctions.pollPaymentStatus(requestId);
+        if (!paymentStatus.paid) {
+          const error = new Error('Payment not confirmed. Please complete payment before submitting.');
+          showError(error.message);
+          if (throwOnError) throw error;
+          return null;
+        }
+      } catch (error) {
+        showError('Payment verification failed. Please try again or contact support.');
         if (throwOnError) throw error;
         return null;
       }
-    } catch (error) {
-      showError('Payment verification failed. Please try again or contact support.');
-      if (throwOnError) throw error;
-      return null;
     }
   }
 
@@ -381,12 +386,12 @@ async function submitGedcomTreeRequest(options = {}) {
     gedcomFile = fileInput.files[0];
   }
 
-  if (!gedcomFile) {
+  if (!gedcomFile && isPaymentEnabled && requestId) {
     gedcomFile = await getCachedGedcomFile(requestId);
   }
 
   if (!gedcomFile) {
-    const error = new Error('GEDCOM file was not found after payment return. Please reselect the file and try again.');
+    const error = new Error('Please select a GEDCOM file before submitting.');
     showError(error.message);
     if (throwOnError) throw error;
     return null;
@@ -428,30 +433,33 @@ async function submitGedcomTreeRequest(options = {}) {
     formData.append('tree_type_display', treeType === 'ancestor' ? 'Ancestor Tree' : 'Descendant Tree');
     formData.append('submission_time', new Date().toLocaleString());
     formData.append('theme', theme);
-    formData.append('request_id', requestId);
-    formData.append('payment_verified', 'true');
-    formData.append(
-      'amount_subtotal',
-      paymentStatus && paymentStatus.amountSubtotal != null ? String(paymentStatus.amountSubtotal) : '',
-    );
-    formData.append(
-      'coupons_used',
-      paymentStatus && Array.isArray(paymentStatus.couponsUsed)
-        ? JSON.stringify(paymentStatus.couponsUsed)
-        : '[]',
-    );
-    formData.append(
-      'amount_discount',
-      paymentStatus && paymentStatus.amountDiscount != null ? String(paymentStatus.amountDiscount) : '',
-    );
-    formData.append(
-      'amount_paid',
-      paymentStatus && paymentStatus.amountPaid != null ? String(paymentStatus.amountPaid) : '',
-    );
-    formData.append(
-      'amount_due',
-      paymentStatus && paymentStatus.amountDue != null ? String(paymentStatus.amountDue) : '',
-    );
+
+    if (isPaymentEnabled) {
+      formData.append('request_id', requestId);
+      formData.append('payment_verified', 'true');
+      formData.append(
+        'amount_subtotal',
+        paymentStatus && paymentStatus.amountSubtotal != null ? String(paymentStatus.amountSubtotal) : '',
+      );
+      formData.append(
+        'coupons_used',
+        paymentStatus && Array.isArray(paymentStatus.couponsUsed)
+          ? JSON.stringify(paymentStatus.couponsUsed)
+          : '[]',
+      );
+      formData.append(
+        'amount_discount',
+        paymentStatus && paymentStatus.amountDiscount != null ? String(paymentStatus.amountDiscount) : '',
+      );
+      formData.append(
+        'amount_paid',
+        paymentStatus && paymentStatus.amountPaid != null ? String(paymentStatus.amountPaid) : '',
+      );
+      formData.append(
+        'amount_due',
+        paymentStatus && paymentStatus.amountDue != null ? String(paymentStatus.amountDue) : '',
+      );
+    }
 
     if (isSmallFile) {
       formData.append('gedcom_file', gedcomFile);
@@ -493,23 +501,7 @@ async function submitGedcomTreeRequest(options = {}) {
     }
 
     const orderDetails = {
-      requestId,
-      amount:
-        paymentStatus && paymentStatus.amount != null
-          ? paymentStatus.amount
-          : (paymentStatus && paymentStatus.productKey && AMOUNT_BY_PRODUCT_KEY[paymentStatus.productKey]) || '',
-      amountSubtotal: paymentStatus && paymentStatus.amountSubtotal != null ? paymentStatus.amountSubtotal : '',
-      amountDiscount: paymentStatus && paymentStatus.amountDiscount != null ? paymentStatus.amountDiscount : '',
-      amountTotal: paymentStatus && paymentStatus.amountTotal != null ? paymentStatus.amountTotal : '',
-      amountPaid: paymentStatus && paymentStatus.amountPaid != null ? paymentStatus.amountPaid : '',
-      amountDue: paymentStatus && paymentStatus.amountDue != null ? paymentStatus.amountDue : '',
-      couponsUsed:
-        paymentStatus && Array.isArray(paymentStatus.couponsUsed)
-          ? JSON.stringify(paymentStatus.couponsUsed)
-          : '[]',
-      currency: paymentStatus && paymentStatus.currency ? paymentStatus.currency : '',
-      priceId: paymentStatus && paymentStatus.priceId ? paymentStatus.priceId : '',
-      productKey: paymentStatus && paymentStatus.productKey ? paymentStatus.productKey : '',
+      requestId: requestId || '',
       customerEmail:
         paymentStatus && paymentStatus.customerEmail ? paymentStatus.customerEmail : contactEmail,
       contactName,
@@ -519,7 +511,28 @@ async function submitGedcomTreeRequest(options = {}) {
       theme: resolvedThemeSlug,
     };
 
-    await clearCachedGedcomFile(requestId);
+    if (isPaymentEnabled) {
+      orderDetails.amount =
+        paymentStatus && paymentStatus.amount != null
+          ? paymentStatus.amount
+          : (paymentStatus && paymentStatus.productKey && AMOUNT_BY_PRODUCT_KEY[paymentStatus.productKey]) || '';
+      orderDetails.amountSubtotal = paymentStatus && paymentStatus.amountSubtotal != null ? paymentStatus.amountSubtotal : '';
+      orderDetails.amountDiscount = paymentStatus && paymentStatus.amountDiscount != null ? paymentStatus.amountDiscount : '';
+      orderDetails.amountTotal = paymentStatus && paymentStatus.amountTotal != null ? paymentStatus.amountTotal : '';
+      orderDetails.amountPaid = paymentStatus && paymentStatus.amountPaid != null ? paymentStatus.amountPaid : '';
+      orderDetails.amountDue = paymentStatus && paymentStatus.amountDue != null ? paymentStatus.amountDue : '';
+      orderDetails.couponsUsed =
+        paymentStatus && Array.isArray(paymentStatus.couponsUsed)
+          ? JSON.stringify(paymentStatus.couponsUsed)
+          : '[]';
+      orderDetails.currency = paymentStatus && paymentStatus.currency ? paymentStatus.currency : '';
+      orderDetails.priceId = paymentStatus && paymentStatus.priceId ? paymentStatus.priceId : '';
+      orderDetails.productKey = paymentStatus && paymentStatus.productKey ? paymentStatus.productKey : '';
+    }
+
+    if (isPaymentEnabled && requestId) {
+      await clearCachedGedcomFile(requestId);
+    }
 
     if (
       window.stripePaymentFunctions &&
