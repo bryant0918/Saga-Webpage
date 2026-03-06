@@ -1,0 +1,83 @@
+Done. Here's what was added:
+Storage (family_trees/clients/replit/storage.py):
+* New get_fs_tree_data(title, root_id, data_type)method that reads from family-tree/<title>_<root_id>/<data_type>.jsonin object storage and returns the parsed dictionary.
+People route (family_trees/web/api/people/views.py): Three new POST endpoints, all sharing the same internal handler:
+Endpoint	Returns
+POST /people/tree/husb	Husband ancestor tree JSON
+POST /people/tree/wife	Wife ancestor tree JSON
+POST /people/tree/kids	Children JSON
+Each endpoint expects a JSON body with:
+{
+"title": "My Tree Name",
+"family_search_id": "ABCD-1234"
+}
+
+Responses:
+* 200 — the stored JSON data
+* 400 — missing body or missing required fields
+* 404 — the JSON hasn't been stored yet for that title/ID
+* 500 — unexpected error
+
+
+Here's the structure for each JSON object returned:
+
+/people/tree/husb and /people/tree/wife
+Both return the same structure — a dictionary keyed by person ID, representing the person and all their ancestors up to the max generation limit.
+{
+"ABCD-1234": {
+"name": ["John Henry", "Smith"],
+"birth": "12 Jan 1850",
+"death": "5 Mar 1920",
+"image": "/path/to/image.jpg",
+"parents": ["EFGH-5678", "IJKL-9012"]
+},
+"EFGH-5678": {
+"name": ["William", "Smith"],
+"birth": "3 Apr 1820",
+"death": "19 Nov 1875",
+"image": "/path/to/image.jpg",
+"parents": ["MNOP-3456", "QRST-7890"]
+},
+...
+}
+
+Field	Type	Notes
+name	[string, string]	First/middle names, then last name as a two-element array
+birth	string | null	Formatted date e.g. "12 Jan 1850"
+death	string | null	Same format, or empty string if unknown
+image	string	File path to the profile image
+parents	[string, string]	Array of two person IDs — father first, mother second
+/people/tree/kids
+A dictionary keyed by child's person ID. Similar to the above but simpler — no death or parents fields, and adds birth_year as a separate integer.
+{
+"UVWX-1357": {
+"name": ["Mary Jane", "Smith"],
+"birth": "4 Jun 1878",
+"birth_year": 1878,
+"image": "/path/to/image.jpg"
+},
+"YZAB-2468": {
+"name": ["Thomas", "Smith"],
+"birth": "11 Sep 1881",
+"birth_year": 1881,
+"image": "/path/to/image.jpg"
+}
+}
+
+Field	Type	Notes
+name	[string, string]	First/middle names, then last name
+birth	string | null	Formatted date e.g. "4 Jun 1878"
+birth_year	integer | null	The year extracted from the birth date
+image	string	File path to the profile image
+
+So now I want you to make a login page /login where they click on login and then they go to that family search login page where they accept the terms etc. but then rather than going to the form to build a tree it knows the original url was from /login so it will show different pages and it will have like a user profile in the top corner and then a tab to view their data and then a tab to send a new request where it has that same form. 
+
+Reuse the form page code where it makes sense by making reusable components etc. 
+
+Use these new endpoints to fetch the data. 
+
+Don’t make the login button on the main index.html yet. I want to just type it into my url manually to test until I’m sure I want to show it to the public. 
+
+To view the data just show like a scrollable list of the data in a nicer view maybe with just the name on the left and then if they click on it they can see the full persons data. 
+
+In the list sort it by first the kids json then the person id json which could be husband or wife. And then the other spouse json
