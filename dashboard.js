@@ -8,7 +8,9 @@ var dashboardState = {
         husb: null,
         wife: null
     },
-    expandedPersonId: null
+    expandedPersonId: null,
+    lookupTitle: "",
+    lookupPersonId: ""
 };
 
 function getCookie(name) {
@@ -72,13 +74,44 @@ function formatName(nameArr) {
     return nameArr.filter(Boolean).join(" ");
 }
 
+function getImageName(imagePath) {
+    if (!imagePath) return null;
+    var parts = imagePath.replace(/\\/g, "/").split("/");
+    return parts[parts.length - 1];
+}
+
+function loadPersonImage(imgElementId, title, familySearchId, imageName) {
+    fetch(TREE_BACKEND_BASE_URL + "/people/tree/image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title, family_search_id: familySearchId, image_name: imageName })
+    }).then(function(response) {
+        if (!response.ok) throw new Error("Image not found");
+        return response.blob();
+    }).then(function(blob) {
+        var img = document.getElementById(imgElementId);
+        if (img) {
+            img.src = URL.createObjectURL(blob);
+            img.style.display = "";
+        }
+    }).catch(function() {
+        var img = document.getElementById(imgElementId);
+        if (img) img.style.display = "none";
+    });
+}
+
 function buildPersonDetailHTML(person, personId, section) {
     var html = '<div class="person-detail-content p-3" style="background-color: var(--deep-black); border-radius: 8px;">';
+    var imageName = getImageName(person.image);
 
-    if (person.image) {
+    if (imageName) {
+        var imgId = "person-img-" + section + "-" + personId.replace(/[^a-zA-Z0-9]/g, "_");
         html += '<div class="text-center mb-3">';
-        html += '<img src="' + person.image + '" alt="' + formatName(person.name) + '" style="max-width: 120px; max-height: 120px; border-radius: 50%; border: 2px solid var(--gold-primary);" onerror="this.style.display=\'none\'">';
+        html += '<img id="' + imgId + '" alt="' + formatName(person.name) + '" style="display: none; max-width: 120px; max-height: 120px; border-radius: 50%; border: 2px solid var(--gold-primary);">';
         html += '</div>';
+        setTimeout(function() {
+            loadPersonImage(imgId, dashboardState.lookupTitle, dashboardState.lookupPersonId, imageName);
+        }, 0);
     }
 
     html += '<div class="row">';
@@ -233,6 +266,8 @@ async function loadTreeData() {
 
     dashboardState.expandedPersonId = null;
     dashboardState.treeData = { kids: null, husb: null, wife: null };
+    dashboardState.lookupTitle = title;
+    dashboardState.lookupPersonId = personId;
 
     try {
         var results = await Promise.allSettled([

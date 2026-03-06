@@ -30,7 +30,7 @@ Preferred communication style: Simple, everyday language.
 ### JavaScript Modules
 - `main.js` — Entry point, handles OAuth callback detection, cookie utilities, and source selection routing. Also checks `login_origin` sessionStorage flag to redirect to `/dashboard` after OAuth.
 - `familysearch.js` — FamilySearch OAuth 2 authentication flow (PKCE-based), API calls, cookie management for access tokens
-- `dashboard.js` — Dashboard-specific logic: fetches user profile from FamilySearch API, loads tree data from `family-trees.replit.app` endpoints (`/people/tree/kids`, `/people/tree/husb`, `/people/tree/wife`), renders expandable person list sorted by children → husband's ancestors → wife's ancestors.
+- `dashboard.js` — Dashboard-specific logic: fetches user profile from FamilySearch API, loads tree data from `family-trees.replit.app` endpoints (`/people/tree/kids`, `/people/tree/husb`, `/people/tree/wife`), renders expandable person list sorted by children → husband's ancestors → wife's ancestors. Person images are loaded via `POST /people/tree/image` endpoint (returns raw image bytes) when a person's details are expanded.
 - `script.js` — GEDCOM upload form handling, file input display, form submission with theme mapping
 - `price-calculator.js` — Pricing logic and Stripe Buy Button integration
 
