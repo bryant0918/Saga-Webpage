@@ -24,10 +24,13 @@ Preferred communication style: Simple, everyday language.
 - `familysearch.html` — FamilySearch OAuth login page
 - `familysearch-config.html` — Configure tree settings after FamilySearch authentication. Starting Person ID uses a dropdown populated from `/people/family` endpoint on `family-trees.replit.app` (returns self, parents, kids, siblings, grandparents). Includes "Other" option for manual ID entry. Display format: `<id> (<name>)` with name shown in lighter gray below the dropdown.
 - `gedcom.html` — GEDCOM file upload form
+- `login.html` — Login page for authenticated user flow (accessed via `/login`). Redirects to FamilySearch OAuth with `login_origin` flag so the callback redirects to `/dashboard` instead of the normal config page. Not linked from index.html (manual URL access only for testing).
+- `dashboard.html` — Authenticated user dashboard (accessed via `/dashboard`). Two tabs: "View Data" (fetch/display stored tree data) and "New Request" (reusable form from familysearch-config). Requires `fs_access_token` cookie; redirects to `/login` if missing.
 
 ### JavaScript Modules
-- `main.js` — Entry point, handles OAuth callback detection, cookie utilities, and source selection routing
+- `main.js` — Entry point, handles OAuth callback detection, cookie utilities, and source selection routing. Also checks `login_origin` sessionStorage flag to redirect to `/dashboard` after OAuth.
 - `familysearch.js` — FamilySearch OAuth 2 authentication flow (PKCE-based), API calls, cookie management for access tokens
+- `dashboard.js` — Dashboard-specific logic: fetches user profile from FamilySearch API, loads tree data from `family-trees.replit.app` endpoints (`/people/tree/kids`, `/people/tree/husb`, `/people/tree/wife`), renders expandable person list sorted by children → husband's ancestors → wife's ancestors.
 - `script.js` — GEDCOM upload form handling, file input display, form submission with theme mapping
 - `price-calculator.js` — Pricing logic and Stripe Buy Button integration
 

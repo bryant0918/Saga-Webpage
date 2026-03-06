@@ -334,9 +334,16 @@ async function exchangeCodeForTokenAndRedirect(code) {
             // Store token in cookie (expires in 24 hours)
             setCookie('fs_access_token', accessToken, 24);
             
-            // Clean up URL and redirect to config page
+            // Clean up URL and redirect based on origin
             window.history.replaceState({}, document.title, window.location.pathname);
-            window.location.href = 'familysearch-config.html';
+            
+            var fromLogin = sessionStorage.getItem('login_origin');
+            if (fromLogin) {
+                sessionStorage.removeItem('login_origin');
+                window.location.href = '/dashboard';
+            } else {
+                window.location.href = 'familysearch-config.html';
+            }
         } else {
             throw new Error('No access token received');
         }
