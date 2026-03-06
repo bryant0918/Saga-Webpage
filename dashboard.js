@@ -8,7 +8,11 @@ var dashboardState = {
         husb: null,
         wife: null
     },
-    expandedPersonId: null
+    expandedPersonId: null,
+    lookupTitle: "",
+    lookupPersonId: "",
+    editingField: null,
+    pendingImageEdit: null
 };
 
 function getCookie(name) {
@@ -72,13 +76,189 @@ function formatName(nameArr) {
     return nameArr.filter(Boolean).join(" ");
 }
 
+function getImageName(imagePath) {
+    if (!imagePath) return null;
+    var parts = imagePath.replace(/\\/g, "/").split("/");
+    return parts[parts.length - 1];
+}
+
+function loadPersonImage(imgElementId, title, familySearchId, imageName) {
+    fetch(TREE_BACKEND_BASE_URL + "/people/tree/image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title, family_search_id: familySearchId, image_name: imageName })
+    }).then(function(response) {
+        if (!response.ok) throw new Error("Image not found");
+        return response.blob();
+    }).then(function(blob) {
+        var img = document.getElementById(imgElementId);
+        if (img) {
+            img.src = URL.createObjectURL(blob);
+            img.style.display = "";
+        }
+    }).catch(function() {
+        var img = document.getElementById(imgElementId);
+        if (img) img.style.display = "none";
+    });
+}
+
+function escapeAttr(str) {
+    if (!str) return "";
+    return str.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+async function saveFieldEdit(section, personId, fieldName, newValue) {
+    var payload = {
+        title: dashboardState.lookupTitle,
+        family_search_id: dashboardState.lookupPersonId,
+        json_type: section,
+        individual_id: personId
+    };
+    payload[fieldName] = newValue;
+
+    try {
+        var response = await fetch(TREE_BACKEND_BASE_URL + "/people/tree/update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+            var errText = await response.text();
+            throw new Error(errText || "Update failed");
+        }
+        var result = await response.json();
+        if (result.updated && dashboardState.treeData[section] && dashboardState.treeData[section][personId]) {
+            var person = dashboardState.treeData[section][personId];
+            if (fieldName === "first_name" && person.name) {
+                person.name[0] = newValue;
+            } else if (fieldName === "last_name" && person.name) {
+                person.name[1] = newValue;
+            } else if (fieldName === "birth") {
+                person.birth = newValue;
+            } else if (fieldName === "death") {
+                person.death = newValue;
+            }
+        }
+        dashboardState.editingField = null;
+        renderDataList();
+    } catch (error) {
+        console.error("Error saving field:", error);
+        alert("Failed to save changes. Please try again.");
+    }
+}
+
+async function uploadNewImage(section, personId, file) {
+    var formData = new FormData();
+    formData.append("title", dashboardState.lookupTitle);
+    formData.append("family_search_id", dashboardState.lookupPersonId);
+    formData.append("json_type", section);
+    formData.append("individual_id", personId);
+    formData.append("image", file);
+
+    try {
+        var response = await fetch(TREE_BACKEND_BASE_URL + "/people/tree/update-image", {
+            method: "POST",
+            body: formData
+        });
+        if (!response.ok) {
+            var errText = await response.text();
+            throw new Error(errText || "Image upload failed");
+        }
+        var result = await response.json();
+        if (result.updated_image_path && dashboardState.treeData[section] && dashboardState.treeData[section][personId]) {
+            dashboardState.treeData[section][personId].image = result.updated_image_path;
+        }
+        renderDataList();
+    } catch (error) {
+        console.error("Error uploading image:", error);
+        alert("Failed to upload image. Please try again.");
+    }
+}
+
+function startEdit(fieldKey) {
+    dashboardState.editingField = fieldKey;
+    renderDataList();
+    setTimeout(function() {
+        var input = document.getElementById("edit-input-" + fieldKey.replace(/[^a-zA-Z0-9]/g, "_"));
+        if (input) input.focus();
+    }, 50);
+}
+
+function cancelEdit() {
+    dashboardState.editingField = null;
+    renderDataList();
+}
+
+function triggerImageUpload(section, personId) {
+    dashboardState.pendingImageEdit = { section: section, personId: personId };
+    var fileInput = document.getElementById("imageUploadInput");
+    if (fileInput) {
+        fileInput.value = "";
+        fileInput.click();
+    }
+}
+
+function handleImageFileSelected(input) {
+    if (!input.files || !input.files[0] || !dashboardState.pendingImageEdit) return;
+    var file = input.files[0];
+    var info = dashboardState.pendingImageEdit;
+    dashboardState.pendingImageEdit = null;
+    uploadNewImage(info.section, info.personId, file);
+}
+
+function buildEditableField(label, value, fieldKey, section, personId, fieldName) {
+    var isEditing = dashboardState.editingField === fieldKey;
+    var safeKey = fieldKey.replace(/[^a-zA-Z0-9]/g, "_");
+    var html = '';
+
+    if (isEditing) {
+        html += '<div class="col-sm-6 mb-2">';
+        html += '<small style="color: var(--text-dark-gray);">' + label + '</small>';
+        html += '<div class="d-flex align-items-center gap-2 mt-1">';
+        html += '<input type="text" id="edit-input-' + safeKey + '" class="form-control form-control-sm" value="' + escapeAttr(value) + '" style="background-color: var(--light-black); color: var(--text-gray); border-color: var(--gold-primary); max-width: 180px;">';
+        html += '<button class="btn btn-sm" onclick="var v=document.getElementById(\'edit-input-' + safeKey + '\').value;saveFieldEdit(\'' + section + '\',\'' + personId + '\',\'' + fieldName + '\',v)" style="color: var(--gold-primary); padding: 2px 8px;" title="Save"><i class="fas fa-check"></i></button>';
+        html += '<button class="btn btn-sm" onclick="cancelEdit()" style="color: var(--text-dark-gray); padding: 2px 8px;" title="Cancel"><i class="fas fa-times"></i></button>';
+        html += '</div></div>';
+    } else {
+        html += '<div class="col-sm-6 mb-2">';
+        html += '<small style="color: var(--text-dark-gray);">' + label + '</small>';
+        html += '<div class="d-flex align-items-center gap-2">';
+        html += '<span style="color: var(--text-gray);">' + (value || "—") + '</span>';
+        html += '<button class="btn btn-sm p-0" onclick="event.stopPropagation();startEdit(\'' + fieldKey + '\')" style="color: var(--text-dark-gray); line-height: 1;" title="Edit ' + label + '"><i class="fas fa-pen-to-square" style="font-size: 0.75rem;"></i></button>';
+        html += '</div></div>';
+    }
+    return html;
+}
+
 function buildPersonDetailHTML(person, personId, section) {
     var html = '<div class="person-detail-content p-3" style="background-color: var(--deep-black); border-radius: 8px;">';
+    var imageName = getImageName(person.image);
+    var imgId = "person-img-" + section + "-" + personId.replace(/[^a-zA-Z0-9]/g, "_");
 
-    if (person.image) {
-        html += '<div class="text-center mb-3">';
-        html += '<img src="' + person.image + '" alt="' + formatName(person.name) + '" style="max-width: 120px; max-height: 120px; border-radius: 50%; border: 2px solid var(--gold-primary);" onerror="this.style.display=\'none\'">';
-        html += '</div>';
+    html += '<div class="text-center mb-3">';
+    html += '<div style="display: inline-block; position: relative; cursor: pointer;" onclick="event.stopPropagation();triggerImageUpload(\'' + section + '\',\'' + personId + '\')">';
+    html += '<img id="' + imgId + '" alt="' + formatName(person.name) + '" style="display: none; max-width: 120px; max-height: 120px; border-radius: 50%; border: 2px solid var(--gold-primary);">';
+    html += '<div id="' + imgId + '_placeholder" style="width: 120px; height: 120px; border-radius: 50%; border: 2px dashed var(--light-black); display: flex; align-items: center; justify-content: center; margin: 0 auto;">';
+    html += '<i class="fas fa-camera" style="color: var(--text-dark-gray); font-size: 1.5rem;"></i>';
+    html += '</div>';
+    html += '<div style="position: absolute; bottom: 2px; right: 2px; background: var(--gold-primary); color: var(--deep-black); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">';
+    html += '<i class="fas fa-pen"></i>';
+    html += '</div>';
+    html += '</div>';
+    html += '<div style="margin-top: 4px;"><small style="color: var(--text-dark-gray);">Click to change image</small></div>';
+    html += '</div>';
+
+    if (imageName) {
+        setTimeout(function() {
+            loadPersonImage(imgId, dashboardState.lookupTitle, dashboardState.lookupPersonId, imageName);
+            var placeholder = document.getElementById(imgId + "_placeholder");
+            var imgEl = document.getElementById(imgId);
+            if (imgEl) {
+                imgEl.addEventListener("load", function() {
+                    if (placeholder) placeholder.style.display = "none";
+                });
+            }
+        }, 0);
     }
 
     html += '<div class="row">';
@@ -88,18 +268,21 @@ function buildPersonDetailHTML(person, personId, section) {
     html += '<div style="color: var(--text-gray);">' + personId + '</div>';
     html += '</div>';
 
-    if (person.birth) {
-        html += '<div class="col-sm-6 mb-2">';
-        html += '<small style="color: var(--text-dark-gray);">Birth</small>';
-        html += '<div style="color: var(--text-gray);">' + person.birth + '</div>';
-        html += '</div>';
+    var firstName = (person.name && person.name[0]) || "";
+    var lastName = (person.name && person.name[1]) || "";
+    var fKey = section + "_" + personId + "_first_name";
+    var lKey = section + "_" + personId + "_last_name";
+    html += buildEditableField("First Name", firstName, fKey, section, personId, "first_name");
+    html += buildEditableField("Last Name", lastName, lKey, section, personId, "last_name");
+
+    if (person.birth !== undefined) {
+        var bKey = section + "_" + personId + "_birth";
+        html += buildEditableField("Birth", person.birth || "", bKey, section, personId, "birth");
     }
 
-    if (section !== "kids" && person.death) {
-        html += '<div class="col-sm-6 mb-2">';
-        html += '<small style="color: var(--text-dark-gray);">Death</small>';
-        html += '<div style="color: var(--text-gray);">' + person.death + '</div>';
-        html += '</div>';
+    if (section !== "kids" && person.death !== undefined) {
+        var dKey = section + "_" + personId + "_death";
+        html += buildEditableField("Death", person.death || "", dKey, section, personId, "death");
     }
 
     if (section === "kids" && person.birth_year) {
@@ -161,6 +344,7 @@ function togglePersonDetail(expandKey) {
     } else {
         dashboardState.expandedPersonId = expandKey;
     }
+    dashboardState.editingField = null;
     renderDataList();
 }
 
@@ -232,7 +416,10 @@ async function loadTreeData() {
     container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-warning mb-3" role="status"><span class="visually-hidden">Loading...</span></div><p style="color: var(--text-gray);">Loading tree data...</p></div>';
 
     dashboardState.expandedPersonId = null;
+    dashboardState.editingField = null;
     dashboardState.treeData = { kids: null, husb: null, wife: null };
+    dashboardState.lookupTitle = title;
+    dashboardState.lookupPersonId = personId;
 
     try {
         var results = await Promise.allSettled([
