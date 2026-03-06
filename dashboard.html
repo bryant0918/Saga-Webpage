@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Saga - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="custom.css">
+    <meta name="description" content="Your Family Saga dashboard - view tree data and submit new requests.">
+    <link rel="icon" type="image/png" href="assets/saga.png">
+    <style>
+        .nav-tabs .nav-link {
+            color: var(--text-dark-gray);
+            border: none;
+            padding: 12px 24px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .nav-tabs .nav-link:hover {
+            color: var(--gold-primary);
+            border: none;
+        }
+        .nav-tabs .nav-link.active {
+            color: var(--gold-primary);
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid var(--gold-primary);
+        }
+        .nav-tabs {
+            border-bottom: 1px solid var(--light-black);
+        }
+        .user-profile-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 14px;
+            border-radius: 24px;
+            background-color: var(--light-black);
+            border: 1px solid var(--light-black);
+        }
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: var(--gold-primary);
+            color: var(--deep-black);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .theme-selector {
+            cursor: pointer;
+            padding: 10px;
+            border: 2px solid var(--light-black);
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        .theme-selector:hover {
+            border-color: var(--gold-primary);
+        }
+        .theme-selector.selected {
+            border-color: var(--gold-primary);
+            box-shadow: 0 0 12px rgba(255, 215, 0, 0.3);
+        }
+        .theme-preview {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+        .theme-preview.selected {
+            box-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark shadow-sm" style="background-color: var(--primary-black);">
+        <div class="container">
+            <a class="navbar-brand fw-bold d-flex align-items-center" href="index.html" style="color: var(--gold-primary);">
+                <img src="assets/saga.png" alt="Family Saga" style="height: 40px; width: auto; margin-right: 10px; border-radius: 50%;">
+                Family Saga
+            </a>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <div class="user-profile-badge">
+                    <div class="user-avatar" id="userAvatar">
+                        <i class="fas fa-user" style="font-size: 0.75rem;"></i>
+                    </div>
+                    <div>
+                        <div id="userDisplayName" style="color: var(--text-gray); font-size: 0.85rem; font-weight: 500; line-height: 1.2;">Loading...</div>
+                        <div id="userDisplayId" style="color: var(--text-dark-gray); font-size: 0.75rem; line-height: 1.2;"></div>
+                    </div>
+                </div>
+                <button class="btn btn-outline-light btn-sm" onclick="logout()">
+                    <i class="fas fa-sign-out-alt me-1"></i>Sign Out
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <ul class="nav nav-tabs mb-4" id="dashboardTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="view-data-tab" data-bs-toggle="tab" data-bs-target="#viewDataPane" type="button" role="tab" aria-controls="viewDataPane" aria-selected="true">
+                    <i class="fas fa-database me-2"></i>View Data
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="new-request-tab" data-bs-toggle="tab" data-bs-target="#newRequestPane" type="button" role="tab" aria-controls="newRequestPane" aria-selected="false">
+                    <i class="fas fa-plus-circle me-2"></i>New Request
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="dashboardTabContent">
+            <div class="tab-pane fade show active" id="viewDataPane" role="tabpanel" aria-labelledby="view-data-tab">
+                <div class="row justify-content-center">
+                    <div class="col-lg-10">
+                        <div class="card mb-4">
+                            <div class="card-body p-4">
+                                <h4 class="mb-3" style="color: var(--gold-primary);">Look Up Tree Data</h4>
+                                <p style="color: var(--text-dark-gray); font-size: 0.9rem;">Enter the tree title and FamilySearch person ID to view stored data.</p>
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-4">
+                                        <label for="dataTitle" class="form-label">Tree Title</label>
+                                        <input type="text" class="form-control" id="dataTitle" placeholder="e.g. Smith Family">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="dataPersonId" class="form-label">FamilySearch Person ID</label>
+                                        <input type="text" class="form-control" id="dataPersonId" placeholder="e.g. ABCD-1234">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <button id="loadDataBtn" class="btn btn-nordic w-100">
+                                            <i class="fas fa-search me-2"></i>Load Data
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="dataListContainer">
+                            <div class="text-center py-5">
+                                <i class="fas fa-folder-open fa-3x mb-3" style="color: var(--light-black);"></i>
+                                <p style="color: var(--text-dark-gray);">Enter a title and person ID above to view stored tree data.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="newRequestPane" role="tabpanel" aria-labelledby="new-request-tab">
+                <div class="row justify-content-center">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-body p-5">
+                                <h2 class="text-center mb-4" style="color: var(--gold-primary);">Configure Your Family Tree</h2>
+
+                                <form id="familySearchForm">
+                                    <h3 class="mb-4" style="color: var(--gold-primary); font-size: 1.3rem;">Your Contact Info</h3>
+
+                                    <div class="mb-3">
+                                        <label for="contactName" class="form-label">Your Name <span style="color: #dc3545;">*</span></label>
+                                        <input type="text" class="form-control" id="contactName" name="contact_name" placeholder="Enter your full name" required>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="contactEmail" class="form-label">Your Email <span style="color: #dc3545;">*</span></label>
+                                        <input type="email" class="form-control" id="contactEmail" name="contact_email" placeholder="Enter your email address" required>
+                                    </div>
+
+                                    <div class="mb-4">
+                                        <label for="contactPhone" class="form-label">Your Phone Number <span style="color: #dc3545;">*</span></label>
+                                        <input type="tel" class="form-control" id="contactPhone" name="contact_phone" placeholder="Enter your phone number" required>
+                                    </div>
+
+                                    <h3 class="mb-4" style="color: var(--gold-primary); font-size: 1.3rem;">Tree Configuration</h3>
+
+                                    <div class="mb-3">
+                                        <label for="startingPersonSelect" class="form-label">Starting Person ID <span style="color: #dc3545;">*</span></label>
+                                        <select class="form-select" id="startingPersonSelect" style="transition: background-color 0.3s, border-color 0.3s;">
+                                            <option value="" disabled selected>Loading family members...</option>
+                                        </select>
+                                        <div id="selectedPersonDisplay" style="display: none; margin-top: 6px; font-size: 0.9rem;">
+                                            <span id="selectedPersonId" style="color: #047857; font-weight: 500;"></span>
+                                            <span id="selectedPersonName" style="color: #9ca3af;"></span>
+                                        </div>
+                                        <div id="manualIdWrapper" style="display: none; margin-top: 8px;">
+                                            <input type="text" class="form-control" id="startingPersonManual" placeholder="Enter FamilySearch Person ID (e.g., KWQS-BYD)">
+                                        </div>
+                                        <input type="hidden" id="startingPerson" name="starting_person" required>
+                                        <div class="form-text">Select a family member or choose "Other" to enter a FamilySearch Person ID manually.</div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="familyName" class="form-label">Family Name <span style="color: #dc3545;">*</span></label>
+                                        <input type="text" class="form-control" id="familyName" name="title" placeholder="Enter your family name" required>
+                                    </div>
+
+                                    <div class="mb-4">
+                                        <label for="treeType" class="form-label">Tree Type</label>
+                                        <select class="form-select" id="treeType" name="tree_type">
+                                            <option value="ancestor" selected>Ancestor Tree</option>
+                                            <option value="descendant">Descendant Tree</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="generations" class="form-label">Number of Generations</label>
+                                        <select class="form-select" id="generations" name="generations">
+                                            <option value="5" selected>5 Generations</option>
+                                            <option value="4">4 Generations</option>
+                                        </select>
+                                        <div class="form-text">Choose how many generations to include in your family tree</div>
+                                    </div>
+
+                                    <div class="mb-4">
+                                        <label for="theme" class="form-label">Design Theme</label>
+                                        <div class="row" id="themeSelection">
+                                            <div class="col-md-6 col-lg-3 mb-3">
+                                                <div class="theme-selector selected" data-theme="royal-heritage" onclick="selectTheme('royal-heritage')">
+                                                    <div class="text-center">
+                                                        <img src="assets/Eichelberger_black.jpg" alt="Royal Heritage" class="theme-preview mb-2 selected" id="preview-royal-heritage">
+                                                        <div>
+                                                            <strong style="color: var(--gold-primary);">Royal Heritage</strong><br>
+                                                            <small style="color: var(--text-gray);">Luxury black & gold</small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6 col-lg-3 mb-3">
+                                                <div class="theme-selector" data-theme="rustic-roots" onclick="selectTheme('rustic-roots')">
+                                                    <div class="text-center">
+                                                        <img src="assets/Eichelberger_rustic.jpg" alt="Rustic Roots" class="theme-preview mb-2" id="preview-rustic-roots">
+                                                        <div>
+                                                            <strong style="color: var(--gold-primary);">Rustic Roots</strong><br>
+                                                            <small style="color: var(--text-gray);">Aged parchment texture</small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6 col-lg-3 mb-3">
+                                                <div class="theme-selector" data-theme="vintage-botanical" onclick="selectTheme('vintage-botanical')">
+                                                    <div class="text-center">
+                                                        <img src="assets/Eichelberger_green.jpg" alt="Vintage Botanical" class="theme-preview mb-2" id="preview-vintage-botanical">
+                                                        <div>
+                                                            <strong style="color: var(--gold-primary);">Vintage Botanical</strong><br>
+                                                            <small style="color: var(--text-gray);">Cream & forest green</small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6 col-lg-3 mb-3">
+                                                <div class="theme-selector" data-theme="ancestral-stone" onclick="selectTheme('ancestral-stone')">
+                                                    <div class="text-center">
+                                                        <img src="assets/Eichelberger_stone.jpg" alt="Ancestral Stone" class="theme-preview mb-2" id="preview-ancestral-stone">
+                                                        <div>
+                                                            <strong style="color: var(--gold-primary);">Ancestral Stone</strong><br>
+                                                            <small style="color: var(--text-gray);">Dark marble & bronze</small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <input type="hidden" id="selectedTheme" name="theme" value="royal-heritage">
+                                        <div class="form-text">Choose your preferred design theme for the family tree</div>
+                                    </div>
+
+                                    <div id="totalPrice" class="mb-4"></div>
+
+                                    <div id="paymentSection" class="mb-4">
+                                        <div class="alert alert-warning text-center" id="paymentRequiredAlert" style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border-color: var(--gold-primary); color: #92400e;">
+                                            <i class="fas fa-shield-alt me-2" style="color: var(--gold-primary);"></i>
+                                            <strong>Secure Payment Required</strong><br>
+                                            <small>Payment must be completed before submitting your tree request.</small>
+                                        </div>
+                                        <div class="text-center mb-3" id="paymentButtonContainer">
+                                            <button type="button" id="proceedToPaymentBtn" class="btn btn-lg" style="background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%); color: var(--deep-black); font-weight: 600; border: none;" onclick="handleProceedToPayment(event)">
+                                                <i class="fas fa-credit-card me-2"></i>Proceed to Payment
+                                            </button>
+                                        </div>
+                                        <div id="paymentPollingMessage" class="alert alert-info text-center d-none" style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border-color: var(--gold-primary); color: #1e40af;">
+                                            <div class="spinner-border spinner-border-sm me-2" role="status" style="color: var(--gold-primary);"><span class="visually-hidden">Loading...</span></div>
+                                            <strong>Confirming your payment...</strong><br>
+                                            <small>Please wait while we verify your payment with Stripe.</small>
+                                        </div>
+                                        <div id="paymentCompleteMessage" class="alert alert-success text-center d-none" style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-color: var(--gold-primary); color: #065f46;">
+                                            <i class="fas fa-check-circle fa-2x mb-2" style="color: var(--gold-primary);"></i><br>
+                                            <strong>Payment Confirmed!</strong><br>
+                                            <small>Submitting your family tree request automatically...</small>
+                                        </div>
+                                        <div class="text-center">
+                                            <button type="submit" class="btn btn-nordic btn-lg d-none" disabled>
+                                                <i class="fas fa-paper-plane me-2"></i>Retry Submission
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div id="directSubmitSection" class="mb-4 d-none">
+                                        <div class="text-center">
+                                            <button type="submit" class="btn btn-lg" id="directSubmitBtn" style="background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%); color: var(--deep-black); font-weight: 600; border: none;">
+                                                <i class="fas fa-paper-plane me-2"></i>Submit Tree Request
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+
+                                <div class="alert alert-info mt-4" style="background: linear-gradient(135deg, #e0f2fe 0%, #e1f5fe 100%); border-color: var(--gold-primary); color: #0277bd;">
+                                    <div class="d-flex align-items-start">
+                                        <i class="fas fa-info-circle me-3 mt-1" style="color: var(--gold-primary);"></i>
+                                        <div>
+                                            <strong style="color: var(--gold-primary);">Note:</strong>
+                                            Please ensure all names, dates, and pictures are up-to-date on familysearch.com before submitting a tree request. Our tree can only be as good as the data available in family search.
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="loadingIndicator" class="text-center py-4 d-none">
+                                    <div class="spinner-border text-warning mb-3" role="status"><span class="visually-hidden">Loading...</span></div>
+                                    <p style="color: var(--text-gray);">Submitting your family tree request... Please wait.</p>
+                                </div>
+
+                                <div id="errorMessage" class="alert alert-danger d-none mt-4"></div>
+
+                                <div id="successMessage" class="alert alert-success d-none mt-4">
+                                    <div class="text-center">
+                                        <i class="fas fa-check-circle fa-2x mb-3" style="color: var(--gold-primary);"></i>
+                                        <h4>Request Submitted Successfully!</h4>
+                                        <p class="mb-0">Thanks for submitting a family tree request. We will be in contact with you shortly with your completed family tree and to gather payment.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="py-4 text-center mt-5" style="background-color: var(--deep-black); color: var(--text-gray);">
+        <div class="container">
+            <div class="d-flex align-items-center justify-content-center mb-2">
+                <img src="assets/saga.png" alt="Family Saga" style="height: 25px; width: auto; margin-right: 8px; border-radius: 50%;">
+                <span style="color: var(--gold-primary); font-weight: 600;">Family Saga</span>
+            </div>
+            <p class="mb-0" style="font-size: 0.9rem;">Crafting luxury family stories with sophisticated elegance.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="dashboard.js"></script>
+    <script src="price-calculator.js"></script>
+
+    <script>
+        window._restoredStartingPerson = null;
+
+        window.paymentFlowConfig = {
+            formId: 'familySearchForm',
+            storageScope: '/dashboard.html',
+            afterRestoreCheckoutFormData: function(formData) {
+                if (formData && formData.starting_person) {
+                    window._restoredStartingPerson = formData.starting_person;
+                }
+                if (formData && formData.theme) {
+                    if (typeof selectTheme === 'function') {
+                        selectTheme(formData.theme);
+                    }
+                }
+            }
+        };
+
+        (async function() {
+            try {
+                var res = await fetch('/api/config');
+                var config = await res.json();
+                window.paymentFlowEnabled = config.paymentFlow;
+            } catch (e) {
+                window.paymentFlowEnabled = true;
+            }
+
+            if (!window.paymentFlowEnabled) {
+                var totalPrice = document.getElementById('totalPrice');
+                var paymentSection = document.getElementById('paymentSection');
+                var directSubmitSection = document.getElementById('directSubmitSection');
+                if (totalPrice) totalPrice.style.display = 'none';
+                if (paymentSection) paymentSection.style.display = 'none';
+                if (directSubmitSection) directSubmitSection.classList.remove('d-none');
+            }
+        })();
+    </script>
+    <script src="stripe-integration.js"></script>
+    <script src="familysearch.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", async function() {
+            var accessToken = getCookie("fs_access_token");
+            if (!accessToken) return;
+
+            window.accessToken = accessToken;
+
+            var treeTypeSelect = document.getElementById("treeType");
+            if (treeTypeSelect) {
+                treeTypeSelect.addEventListener("change", function(e) {
+                    var generationsSelect = document.getElementById("generations");
+                    var treeType = e.target.value;
+                    if (treeType === "descendant") {
+                        generationsSelect.innerHTML = '<option value="4" selected>4 Generations</option><option value="3">3 Generations</option>';
+                    } else {
+                        generationsSelect.innerHTML = '<option value="5" selected>5 Generations</option><option value="4">4 Generations</option>';
+                    }
+                    if (typeof updatePriceDisplay === "function") {
+                        setTimeout(updatePriceDisplay, 50);
+                    }
+                });
+            }
+
+            var currentPerson = await window.fetchCurrentPerson(accessToken);
+            if (!currentPerson) return;
+
+            var nameParts = currentPerson.name.split(" ");
+
+            var startingPersonSelect = document.getElementById("startingPersonSelect");
+            var startingPersonInput = document.getElementById("startingPerson");
+            var manualIdWrapper = document.getElementById("manualIdWrapper");
+            var startingPersonManual = document.getElementById("startingPersonManual");
+            var selectedPersonDisplay = document.getElementById("selectedPersonDisplay");
+            var selectedPersonIdSpan = document.getElementById("selectedPersonId");
+            var selectedPersonNameSpan = document.getElementById("selectedPersonName");
+            var familyMembersMap = {};
+
+            function applyAutoFillStyle(el) {
+                el.style.backgroundColor = "#ecfdf5";
+                el.style.borderColor = "#10b981";
+                el.style.color = "#047857";
+            }
+
+            function updateSelectedDisplay() {
+                var val = startingPersonSelect.value;
+                if (val && val !== "__other__" && familyMembersMap[val]) {
+                    selectedPersonIdSpan.textContent = val;
+                    selectedPersonNameSpan.textContent = " (" + familyMembersMap[val] + ")";
+                    selectedPersonDisplay.style.display = "block";
+                } else {
+                    selectedPersonDisplay.style.display = "none";
+                }
+            }
+
+            function syncHiddenInput() {
+                if (startingPersonSelect.value === "__other__") {
+                    startingPersonInput.value = startingPersonManual.value.trim();
+                } else {
+                    startingPersonInput.value = startingPersonSelect.value;
+                }
+            }
+
+            startingPersonSelect.addEventListener("change", function() {
+                if (this.value === "__other__") {
+                    manualIdWrapper.style.display = "block";
+                    startingPersonManual.focus();
+                    this.style.backgroundColor = "";
+                    this.style.borderColor = "";
+                    this.style.color = "";
+                } else {
+                    manualIdWrapper.style.display = "none";
+                    startingPersonManual.value = "";
+                    applyAutoFillStyle(this);
+                }
+                updateSelectedDisplay();
+                syncHiddenInput();
+            });
+
+            startingPersonManual.addEventListener("input", syncHiddenInput);
+
+            function populateDropdown(familyMembers) {
+                startingPersonSelect.innerHTML = "";
+                familyMembersMap = {};
+
+                var targetId = window._restoredStartingPerson || currentPerson.id;
+                var foundTarget = false;
+
+                familyMembers.forEach(function(person) {
+                    familyMembersMap[person.id] = person.name;
+                    var opt = document.createElement("option");
+                    opt.value = person.id;
+                    opt.textContent = person.id + " (" + person.name + ")";
+                    if (person.id === targetId) {
+                        opt.selected = true;
+                        foundTarget = true;
+                    }
+                    startingPersonSelect.appendChild(opt);
+                });
+
+                var otherOpt = document.createElement("option");
+                otherOpt.value = "__other__";
+                otherOpt.textContent = "Other (enter ID manually)";
+                startingPersonSelect.appendChild(otherOpt);
+
+                if (window._restoredStartingPerson && !foundTarget) {
+                    otherOpt.selected = true;
+                    manualIdWrapper.style.display = "block";
+                    startingPersonManual.value = window._restoredStartingPerson;
+                }
+
+                applyAutoFillStyle(startingPersonSelect);
+                updateSelectedDisplay();
+                syncHiddenInput();
+            }
+
+            populateDropdown([{ id: currentPerson.id, name: currentPerson.name }]);
+
+            (async function() {
+                try {
+                    var familyRes = await fetch("https://family-trees.replit.app/people/family", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            root_person_id: currentPerson.id,
+                            access_token: accessToken
+                        })
+                    });
+                    if (familyRes.ok) {
+                        var rawData = await familyRes.json();
+                        var familyList = null;
+                        if (Array.isArray(rawData)) {
+                            familyList = rawData;
+                        } else if (rawData && typeof rawData === "object") {
+                            var arrayKey = Object.keys(rawData).find(function(k) { return Array.isArray(rawData[k]); });
+                            if (arrayKey) familyList = rawData[arrayKey];
+                        }
+                        if (familyList && familyList.length > 0) {
+                            populateDropdown(familyList);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Error fetching family members:", err);
+                }
+            })();
+
+            var familyNameInput = document.getElementById("familyName");
+            if (familyNameInput && nameParts.length > 0) {
+                familyNameInput.value = nameParts[nameParts.length - 1];
+                applyAutoFillStyle(familyNameInput);
+            }
+
+            var contactNameInput = document.getElementById("contactName");
+            if (contactNameInput) {
+                contactNameInput.value = currentPerson.name;
+                applyAutoFillStyle(contactNameInput);
+            }
+        });
+
+        function selectTheme(themeName) {
+            document.querySelectorAll(".theme-selector").forEach(function(s) { s.classList.remove("selected"); });
+            document.querySelectorAll(".theme-preview").forEach(function(p) { p.classList.remove("selected"); });
+            var sel = document.querySelector('[data-theme="' + themeName + '"]');
+            var prev = document.getElementById("preview-" + themeName);
+            if (sel) sel.classList.add("selected");
+            if (prev) prev.classList.add("selected");
+            document.getElementById("selectedTheme").value = themeName;
+        }
+
+        function switchUser() {
+            document.cookie = "fs_access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            document.cookie = "fs_refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            document.cookie = "oauth_state=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            localStorage.clear();
+            sessionStorage.clear();
+            window.accessToken = null;
+            window.location.href = "/login?switch_user=true";
+        }
+    </script>
+</body>
+</html>
