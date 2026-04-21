@@ -1,4 +1,5 @@
-var TREE_BACKEND_BASE_URL = "https://family-trees.replit.app";
+var DASHBOARD_CONFIG = window.APP_CONFIG || {};
+var TREE_BACKEND_BASE_URL = DASHBOARD_CONFIG.TREE_BACKEND_BASE_URL || "https://family-trees.replit.app";
 
 var dashboardState = {
     accessToken: null,
@@ -32,7 +33,7 @@ function deleteCookie(name) {
 
 async function fetchCurrentPerson(accessToken) {
     try {
-        var response = await fetch("https://api.familysearch.org/platform/tree/current-person", {
+        var response = await fetch((DASHBOARD_CONFIG.FS_API_BASE_URL || "https://api.familysearch.org") + "/platform/tree/current-person", {
             method: "GET",
             headers: {
                 "Accept": "application/x-gedcomx-v1+json",
