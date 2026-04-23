@@ -1,7 +1,8 @@
 // script.js - GEDCOM submission flow with shared Stripe payment integration
 
-const GETFORM_ENDPOINT = 'https://getform.io/f/bdrgewgb';
-const TREE_BACKEND_BASE_URL = 'https://family-trees.replit.app';
+const PUBLIC_CONFIG = window.APP_CONFIG || {};
+const GETFORM_ENDPOINT = PUBLIC_CONFIG.GETFORM_ENDPOINT || 'https://getform.io/f/bdrgewgb';
+const TREE_BACKEND_BASE_URL = PUBLIC_CONFIG.TREE_BACKEND_BASE_URL || 'https://family-trees.replit.app';
 const GEDCOM_FILE_DB_NAME = 'familySagaGedcomPaymentCache';
 const GEDCOM_FILE_STORE = 'pendingGedcomFiles';
 

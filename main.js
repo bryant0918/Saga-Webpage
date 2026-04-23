@@ -1,5 +1,17 @@
 // Main JavaScript for Heritage Family Trees
 
+const PUBLIC_CONFIG = window.APP_CONFIG || {};
+const FS_CONFIG = {
+    APP_KEY: PUBLIC_CONFIG.FS_APP_KEY || "b00KBZ8PWGLG7SJ0A3U1",
+    REDIRECT_URI:
+        (PUBLIC_CONFIG.FS_ENVIRONMENT || "production").toLowerCase() === "beta"
+            ? "https://bryantmcarthur.com/family-trees"
+            : `${window.location.origin}/`,
+    TOKEN_URL:
+        PUBLIC_CONFIG.FS_TOKEN_URL ||
+        "https://ident.familysearch.org/cis-web/oauth2/v3/token",
+};
+
 // Cookie utility functions (from familysearch.js)
 function setCookie(name, value, hours) {
     const date = new Date();
@@ -307,12 +319,11 @@ async function exchangeCodeForTokenAndRedirect(code) {
         const tokenData = {
             grant_type: 'authorization_code',
             code: code,
-            redirect_uri: window.location.origin + "/",
-            client_id: 'b00KBZ8PWGLG7SJ0A3U1'
+            redirect_uri: FS_CONFIG.REDIRECT_URI,
+            client_id: FS_CONFIG.APP_KEY
         };
 
-        // const response = await fetch('https://identbeta.familysearch.org/cis-web/oauth2/v3/token', {
-        const response = await fetch('https://ident.familysearch.org/cis-web/oauth2/v3/token', {
+        const response = await fetch(FS_CONFIG.TOKEN_URL, {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',

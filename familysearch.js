@@ -1,21 +1,22 @@
 // familysearch.js - Client-side FamilySearch authentication and tree generation
 
+const PUBLIC_CONFIG = window.APP_CONFIG || {};
+
 // FamilySearch configuration
 const FS_CONFIG = {
-    APP_KEY: "b00KBZ8PWGLG7SJ0A3U1",
-    REDIRECT_URI: window.location.origin + "/",
-    // ENVIRONMENT: "beta",
-    ENVIRONMENT: "production",
-    // BASE_URL: "https://identbeta.familysearch.org", // beta environment
-    BASE_URL: "https://ident.familysearch.org", // production environment
-    // TOKEN_URL: "https://identbeta.familysearch.org/cis-web/oauth2/v3/token",
-    TOKEN_URL: "https://ident.familysearch.org/cis-web/oauth2/v3/token",
-    // API_BASE_URL: "https://apibeta.familysearch.org",
-    API_BASE_URL: "https://api.familysearch.org",
+    APP_KEY: PUBLIC_CONFIG.FS_APP_KEY || "b00KBZ8PWGLG7SJ0A3U1",
+    ENVIRONMENT: PUBLIC_CONFIG.FS_ENVIRONMENT || "production",
+    REDIRECT_URI:
+        (PUBLIC_CONFIG.FS_ENVIRONMENT || "production").toLowerCase() === "beta"
+            ? "https://bryantmcarthur.com/family-trees"
+            : `${window.location.origin}/`,
+    BASE_URL: PUBLIC_CONFIG.FS_BASE_URL || "https://ident.familysearch.org",
+    TOKEN_URL: PUBLIC_CONFIG.FS_TOKEN_URL || "https://ident.familysearch.org/cis-web/oauth2/v3/token",
+    API_BASE_URL: PUBLIC_CONFIG.FS_API_BASE_URL || "https://api.familysearch.org",
 };
 
-const GETFORM_ENDPOINT = "https://getform.io/f/bdrgewgb";
-const TREE_BACKEND_BASE_URL = "https://family-trees.replit.app";
+const GETFORM_ENDPOINT = PUBLIC_CONFIG.GETFORM_ENDPOINT || "https://getform.io/f/bdrgewgb";
+const TREE_BACKEND_BASE_URL = PUBLIC_CONFIG.TREE_BACKEND_BASE_URL || "https://family-trees.replit.app";
 
 let pdfBlob = null;
 

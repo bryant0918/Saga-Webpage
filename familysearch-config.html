@@ -808,7 +808,8 @@
         </script>
         
         <script src="stripe-integration.js"></script>
-        <script src="familysearch.js"></script>
+        <script src="/api/public-config.js"></script>
+    <script src="familysearch.js"></script>
         <script>
             // Check if user is authenticated when page loads
             document.addEventListener("DOMContentLoaded", async function () {
@@ -999,7 +1000,7 @@
                         (async function() {
                             try {
                                 console.log("[FamilyDropdown] Fetching family members for root_id:", currentPerson.id);
-                                const familyRes = await fetch("https://family-trees.replit.app/people/family", {
+                                const familyRes = await fetch(((window.APP_CONFIG && window.APP_CONFIG.TREE_BACKEND_BASE_URL) || "https://family-trees.replit.app") + "/people/family", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
                                     body: JSON.stringify({
