@@ -91,11 +91,8 @@ function setDashboardMessage(message, isError) {
     el.style.color = isError ? "#ffb4b4" : "var(--text-dark-gray)";
 }
 
-function setContextStatus(message, isError) {
-    var el = document.getElementById("contextStatus");
-    if (!el) return;
-    el.textContent = message || "";
-    el.style.color = isError ? "#ffb4b4" : "var(--text-dark-gray)";
+function setContextStatus() {
+    // no-op: status messages now go through setDashboardMessage
 }
 
 function setContextMeta(text) {
@@ -105,8 +102,7 @@ function setContextMeta(text) {
 }
 
 function updateSelectedRootDisplay() {
-    var rootEl = document.getElementById("selectedRootId");
-    if (rootEl) rootEl.textContent = getPersonLabel(dashboardState.selectedContextId);
+    // no-op: context is shown via the dropdown itself
 }
 
 function getLookupPayload(contextId) {
@@ -300,14 +296,14 @@ async function refreshContexts(preferredContextId) {
 async function loadChartBuilds() {
     var listEl = document.getElementById("chartBuildsList");
     if (!listEl) return;
-    listEl.textContent = "Loading chart build artifacts...";
+    listEl.textContent = "Loading...";
 
     try {
         var result = await postJson("/people/tree/chart-builds", { user_scope_id: dashboardState.userScopeId }, false);
         var builds = (result && result.chart_builds) || [];
 
         if (!builds.length) {
-            listEl.innerHTML = '<span style="color: var(--text-dark-gray);">No chart builds found yet.</span>';
+            listEl.innerHTML = '<span style="color: var(--text-dark-gray);">No chart requests yet. Click "Build Tree" to get started.</span>';
             return;
         }
 
@@ -424,32 +420,48 @@ async function loadTreeData() {
         renderDataList();
         renderMetaSummary();
 
+        var hasAnyData = dashboardState.treeData.kids || dashboardState.treeData.husb ||
+            dashboardState.treeData.wife || dashboardState.treeData.sibs || dashboardState.treeData.desc;
+
+        if (!hasAnyData) {
+            container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-warning mb-3" role="status"><span class="visually-hidden">Loading...</span></div><p style="color: var(--text-gray);">Fetching tree data from FamilySearch...</p><p class="small" style="color: var(--text-dark-gray);">This may take a minute for a new person.</p></div>';
+            setDashboardMessage("Fetching from FamilySearch...", false);
+            var personId = extractPersonIdFromSlug(contextId);
+            await syncContext(personId, dashboardState.loadedAncestorGenerations, dashboardState.loadedDescendantGenerations);
+            await refreshContexts(dashboardState.selectedContextId);
+            await loadTreeData();
+            return;
+        }
+
         var failures = results.filter(function(r) { return r.status === "rejected"; });
         if (failures.length) {
             setDashboardMessage("Loaded with partial data. Some sections were unavailable.", false);
         } else {
-            setDashboardMessage("Loaded cached data for " + getPersonLabel(contextId) + ".", false);
+            setDashboardMessage("", false);
         }
     } catch (error) {
         console.error("Error loading tree data:", error);
-        container.innerHTML = '<div class="text-center py-5"><i class="fas fa-exclamation-triangle fa-2x mb-3" style="color: #dc3545;"></i><p style="color: #dc3545;">Failed to load cached tree data.</p></div>';
-        setDashboardMessage("Failed to load cached data.", true);
+        container.innerHTML = '<div class="text-center py-5"><i class="fas fa-exclamation-triangle fa-2x mb-3" style="color: #dc3545;"></i><p style="color: #dc3545;">Failed to load tree data.</p></div>';
+        setDashboardMessage("Failed to load data.", true);
     }
 }
 
 async function initializeCache() {
     if (!dashboardState.currentPerson || !dashboardState.currentPerson.id) return;
+    var container = document.getElementById("dataListContainer");
 
     try {
-        setDashboardMessage("Initializing your tree cache (this can take a minute)...", false);
+        if (container) container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-warning mb-3" role="status"><span class="visually-hidden">Loading...</span></div><p style="color: var(--text-gray);">Setting up your tree data...</p><p class="small" style="color: var(--text-dark-gray);">Fetching from FamilySearch. This may take a minute.</p></div>';
+        setDashboardMessage("Initializing...", false);
         await syncContext(dashboardState.currentPerson.id, 4, 3);
         await refreshContexts(dashboardState.selectedContextId);
         await loadTreeData();
         await loadChartBuilds();
-        setDashboardMessage("Tree cache initialized.", false);
+        setDashboardMessage("", false);
     } catch (error) {
         console.error("Initialize failed:", error);
-        setDashboardMessage("Failed to initialize cache.", true);
+        if (container) container.innerHTML = '<div class="text-center py-5"><i class="fas fa-exclamation-triangle fa-2x mb-3" style="color: #dc3545;"></i><p style="color: #dc3545;">Failed to initialize. Please refresh and try again.</p></div>';
+        setDashboardMessage("Failed to initialize.", true);
     }
 }
 
@@ -1246,20 +1258,9 @@ function wireControls() {
             dashboardState.selectedContextId = e.target.value || null;
             updateSelectedRootDisplay();
             loadTreeData();
+            loadChartBuilds();
         });
     }
-
-    var initializeBtn = document.getElementById("initializeBtn");
-    if (initializeBtn) initializeBtn.addEventListener("click", initializeCache);
-
-    var fetchSelectedBtn = document.getElementById("fetchSelectedBtn");
-    if (fetchSelectedBtn) fetchSelectedBtn.addEventListener("click", fetchSelectedContextData);
-
-    var fetchNextGenBtn = document.getElementById("fetchNextGenBtn");
-    if (fetchNextGenBtn) fetchNextGenBtn.addEventListener("click", fetchNextAncestorGeneration);
-
-    var loadDataBtn = document.getElementById("loadDataBtn");
-    if (loadDataBtn) loadDataBtn.addEventListener("click", loadTreeData);
 
     var refreshContextsBtn = document.getElementById("refreshContextsBtn");
     if (refreshContextsBtn) {
@@ -1326,105 +1327,85 @@ async function bootstrapDashboard() {
     await loadChartBuilds();
 }
 
-function openBuildChartModal() {
-    if (!dashboardState.selectedContextId) {
-        alert("Please select a context first.");
+function openBuildTreeDrawer() {
+    if (!dashboardState.currentPerson) {
+        alert("Please log in first.");
         return;
     }
 
-    var personEl = document.getElementById("buildChartPerson");
-    if (personEl) {
-        var contextId = dashboardState.selectedContextId;
-        var personName = contextId;
-        var allData = [dashboardState.treeData.husb, dashboardState.treeData.wife, dashboardState.treeData.desc];
-        for (var i = 0; i < allData.length; i++) {
-            if (allData[i] && allData[i][contextId]) {
-                personName = formatName(allData[i][contextId].name) + " (" + contextId + ")";
-                break;
-            }
-        }
-        personEl.textContent = personName;
+    // Auto-populate form fields
+    var contactName = document.getElementById("contactName");
+    var contactEmail = document.getElementById("contactEmail");
+    var familyName = document.getElementById("familyName");
+    var startingPerson = document.getElementById("startingPerson");
+    var startingPersonSelect = document.getElementById("startingPersonSelect");
+
+    if (contactName && dashboardState.currentPerson) contactName.value = dashboardState.currentPerson.name;
+    if (familyName) {
+        var parts = (dashboardState.currentPerson.name || "").split(" ");
+        familyName.value = parts[parts.length - 1] || "";
     }
+    if (startingPerson && dashboardState.currentPerson) startingPerson.value = dashboardState.currentPerson.id;
 
-    var titleEl = document.getElementById("buildChartTitle");
-    if (titleEl) titleEl.value = dashboardState.lookupTitle || "Family Tree";
+    // Populate starting person dropdown from known people
+    if (startingPersonSelect) {
+        startingPersonSelect.innerHTML = "";
+        var people = [];
+        if (dashboardState.currentPerson) {
+            people.push({ id: dashboardState.currentPerson.id, name: dashboardState.currentPerson.name });
+        }
+        Object.keys(dashboardState.personNames).forEach(function(pid) {
+            if (pid !== dashboardState.currentPerson.id) {
+                people.push({ id: pid, name: dashboardState.personNames[pid] });
+            }
+        });
+        people.forEach(function(p) {
+            var opt = document.createElement("option");
+            opt.value = p.id;
+            opt.textContent = p.name + " (" + p.id + ")";
+            startingPersonSelect.appendChild(opt);
+        });
+        var otherOpt = document.createElement("option");
+        otherOpt.value = "__other__";
+        otherOpt.textContent = "Other (enter ID manually)";
+        startingPersonSelect.appendChild(otherOpt);
 
-    var statusEl = document.getElementById("buildChartStatus");
-    if (statusEl) statusEl.textContent = "";
-
-    var submitBtn = document.getElementById("buildChartSubmitBtn");
-    if (submitBtn) submitBtn.disabled = false;
-
-    var typeEl = document.getElementById("buildChartType");
-    var genEl = document.getElementById("buildChartGenerations");
-    if (typeEl && genEl) {
-        typeEl.onchange = function() {
-            genEl.innerHTML = "";
-            if (typeEl.value === "ancestor") {
-                genEl.add(new Option("4", "4"));
-                genEl.add(new Option("5", "5", true, true));
+        startingPersonSelect.value = (dashboardState.currentPerson || {}).id || "";
+        startingPersonSelect.onchange = function() {
+            var manualWrapper = document.getElementById("manualIdWrapper");
+            var manualInput = document.getElementById("startingPersonManual");
+            if (this.value === "__other__") {
+                if (manualWrapper) manualWrapper.style.display = "";
+                if (manualInput) manualInput.focus();
             } else {
-                genEl.add(new Option("2", "2"));
-                genEl.add(new Option("3", "3", true, true));
-                genEl.add(new Option("4", "4"));
+                if (manualWrapper) manualWrapper.style.display = "none";
+                if (startingPerson) startingPerson.value = this.value;
             }
         };
-        typeEl.onchange();
     }
 
-    var modal = new bootstrap.Modal(document.getElementById("buildChartModal"));
-    modal.show();
-}
-
-async function submitBuildChart() {
-    var statusEl = document.getElementById("buildChartStatus");
-    var submitBtn = document.getElementById("buildChartSubmitBtn");
-
-    var title = (document.getElementById("buildChartTitle") || {}).value || "Family Tree";
-    var treeType = (document.getElementById("buildChartType") || {}).value || "ancestor";
-    var theme = (document.getElementById("buildChartTheme") || {}).value || "rustic";
-    var maxGenerations = parseInt((document.getElementById("buildChartGenerations") || {}).value || "5", 10);
-
-    if (submitBtn) submitBtn.disabled = true;
-    if (statusEl) {
-        statusEl.textContent = "Starting chart build...";
-        statusEl.style.color = "var(--gold-primary)";
+    // Tree type change -> update generations
+    var treeType = document.getElementById("treeType");
+    var generations = document.getElementById("generations");
+    if (treeType && generations) {
+        treeType.onchange = function() {
+            if (this.value === "descendant") {
+                generations.innerHTML = '<option value="4" selected>4 Generations</option><option value="3">3 Generations</option>';
+            } else {
+                generations.innerHTML = '<option value="5" selected>5 Generations</option><option value="4">4 Generations</option>';
+            }
+            if (typeof updatePriceDisplay === "function") setTimeout(updatePriceDisplay, 50);
+        };
     }
 
-    var payload = {
-        user_scope_id: dashboardState.userScopeId,
-        context_id: dashboardState.selectedContextId,
-        tree_type: treeType,
-        theme: theme,
-        title: title,
-        max_generations: maxGenerations,
-        contact_email: "",
-        contact_name: ""
-    };
+    // Set access token for stripe-integration form submission
+    window.accessToken = dashboardState.accessToken;
 
-    try {
-        var response = await fetch(TREE_BACKEND_BASE_URL + "/build_chart", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-        var result = await response.json();
-        if (!response.ok) {
-            throw new Error(result.error || "Build request failed");
-        }
-        if (statusEl) {
-            statusEl.textContent = "Chart build started! The PDF is being generated and will appear in Chart Builds when ready.";
-            statusEl.style.color = "var(--gold-primary)";
-        }
-        setTimeout(function() { loadChartBuilds(); }, 5000);
-    } catch (error) {
-        console.error("Error starting chart build:", error);
-        if (statusEl) {
-            statusEl.textContent = "Failed to start build: " + error.message;
-            statusEl.style.color = "#ffb4b4";
-        }
-        if (submitBtn) submitBtn.disabled = false;
-    }
+    // Open the drawer
+    var drawer = new bootstrap.Offcanvas(document.getElementById("buildTreeDrawer"));
+    drawer.show();
+
+    if (typeof updatePriceDisplay === "function") setTimeout(updatePriceDisplay, 100);
 }
 
 document.addEventListener("DOMContentLoaded", bootstrapDashboard);

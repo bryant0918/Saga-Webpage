@@ -292,6 +292,7 @@ function startPaymentPolling(requestId, onPaymentComplete) {
   console.log('Starting payment polling for request:', requestId);
 
   window.stripePayment.currentAttempt = 0;
+  window.stripePayment.consecutiveErrors = 0;
 
   if (window.stripePayment.pollingInterval) {
     clearInterval(window.stripePayment.pollingInterval);
@@ -310,10 +311,20 @@ function startPaymentPolling(requestId, onPaymentComplete) {
       console.log('Payment confirmed:', status);
       stopPaymentPolling();
       onPaymentComplete(status);
-    } else if (window.stripePayment.currentAttempt >= window.stripePayment.maxPollingAttempts) {
-      console.warn('Polling timeout reached');
-      stopPaymentPolling();
-      showPaymentTimeoutError();
+    } else if (status.error) {
+      window.stripePayment.consecutiveErrors = (window.stripePayment.consecutiveErrors || 0) + 1;
+      if (window.stripePayment.consecutiveErrors >= 3) {
+        console.warn('Payment status check failing repeatedly:', status.error);
+        stopPaymentPolling();
+        showPaymentConnectionError(status.error);
+      }
+    } else {
+      window.stripePayment.consecutiveErrors = 0;
+      if (window.stripePayment.currentAttempt >= window.stripePayment.maxPollingAttempts) {
+        console.warn('Polling timeout reached');
+        stopPaymentPolling();
+        showPaymentTimeoutError();
+      }
     }
   }, 2000);
 }
@@ -364,6 +375,16 @@ function showPaymentCompleteUI() {
     submitButton.disabled = true;
     submitButton.classList.add('d-none');
     submitButton.style.display = 'none';
+  }
+}
+
+function showPaymentConnectionError(errorDetail) {
+  hidePaymentPollingUI();
+
+  const errorMessage = document.getElementById('errorMessage');
+  if (errorMessage) {
+    errorMessage.textContent = 'Unable to verify payment status. If you completed payment, your payment is safe — please refresh the page or contact us. (' + (errorDetail || 'connection error') + ')';
+    errorMessage.classList.remove('d-none');
   }
 }
 
