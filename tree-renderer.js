@@ -102,22 +102,33 @@ function deriveGenerationsFromParentGraph(data) {
     if (!data) return gen;
     var ids = Object.keys(data);
     if (!ids.length) return gen;
+
+    // First, use any stored generation values
+    ids.forEach(function(id) {
+        if (data[id] && Number.isFinite(data[id].generation)) {
+            gen[id] = data[id].generation;
+        }
+    });
+
+    // For people without stored generation, derive from parent graph
     var refs = {};
     ids.forEach(function(id) {
         (Array.isArray(data[id] && data[id].parents) ? data[id].parents : []).forEach(function(p) { refs[p] = true; });
     });
-    var roots = ids.filter(function(id) { return !refs[id]; });
-    if (!roots.length) roots = [ids[0]];
-    var q = roots.map(function(id) { return { id: id, g: 1 }; });
-    while (q.length) {
-        var cur = q.shift();
-        if (!data[cur.id]) continue;
-        if (gen[cur.id] !== undefined && gen[cur.id] <= cur.g) continue;
-        gen[cur.id] = cur.g;
-        (Array.isArray(data[cur.id].parents) ? data[cur.id].parents : []).forEach(function(pid) {
-            if (data[pid]) q.push({ id: pid, g: cur.g + 1 });
-        });
+    var roots = ids.filter(function(id) { return !refs[id] && gen[id] === undefined; });
+    if (roots.length) {
+        var q = roots.map(function(id) { return { id: id, g: 1 }; });
+        while (q.length) {
+            var cur = q.shift();
+            if (!data[cur.id]) continue;
+            if (gen[cur.id] !== undefined && gen[cur.id] <= cur.g) continue;
+            gen[cur.id] = cur.g;
+            (Array.isArray(data[cur.id].parents) ? data[cur.id].parents : []).forEach(function(pid) {
+                if (data[pid] && gen[pid] === undefined) q.push({ id: pid, g: cur.g + 1 });
+            });
+        }
     }
+
     return gen;
 }
 
@@ -175,13 +186,45 @@ function buildPersonDetailHTML(person, personId, section) {
     if (person.death !== undefined) html += buildEditableField("Death", person.death || "", section + "_" + personId + "_death", section, personId, "death");
 
     if (Array.isArray(person.parents) && person.parents.length) {
-        html += '<div class="col-12 mb-2"><small style="color: var(--text-dark-gray);">Parents</small><div style="color: var(--text-gray);">' + escapeAttr(person.parents.join(", ")) + "</div></div>";
+        var parentLabels = person.parents.map(function(pid) {
+            var pName = cfg.getPersonName ? cfg.getPersonName(pid) : "";
+            return pName ? pName + " (" + pid + ")" : pid;
+        });
+        html += '<div class="col-12 mb-2"><small style="color: var(--text-dark-gray);">Parents</small>';
+        html += '<div style="color: var(--text-gray);">' + escapeAttr(parentLabels.join(", ")) + '</div>';
+        if (person.parents.length < 2 && (section === "husb" || section === "wife")) {
+            html += '<button class="btn btn-sm btn-outline-warning mt-1" onclick="event.stopPropagation();window.TreeRendererConfig.addPerson(\'parent\', \'' + section + '\', \'' + personId + '\')"><i class="fas fa-plus me-1"></i>Add Parent</button>';
+        }
+        html += '</div>';
+    } else if (section === "husb" || section === "wife") {
+        html += '<div class="col-12 mb-2"><small style="color: var(--text-dark-gray);">Parents</small>';
+        html += '<div style="color: var(--text-dark-gray);">None listed</div>';
+        html += '<button class="btn btn-sm btn-outline-warning mt-1" onclick="event.stopPropagation();window.TreeRendererConfig.addPerson(\'parent\', \'' + section + '\', \'' + personId + '\')"><i class="fas fa-plus me-1"></i>Add Parent</button>';
+        html += '</div>';
     }
+
     if (Array.isArray(person.children) && person.children.length) {
-        html += '<div class="col-12 mb-2"><small style="color: var(--text-dark-gray);">Children</small><div style="color: var(--text-gray);">' + escapeAttr(person.children.join(", ")) + "</div></div>";
+        var childLabels = person.children.map(function(cid) {
+            var cName = cfg.getPersonName ? cfg.getPersonName(cid) : "";
+            return cName ? cName + " (" + cid + ")" : cid;
+        });
+        html += '<div class="col-12 mb-2"><small style="color: var(--text-dark-gray);">Children</small>';
+        html += '<div style="color: var(--text-gray);">' + escapeAttr(childLabels.join(", ")) + '</div>';
+        if (section === "desc") {
+            html += '<button class="btn btn-sm btn-outline-warning mt-1" onclick="event.stopPropagation();window.TreeRendererConfig.addPerson(\'child\', \'' + section + '\', \'' + personId + '\')"><i class="fas fa-plus me-1"></i>Add Child</button>';
+        }
+        html += '</div>';
+    } else if (section === "desc") {
+        html += '<div class="col-12 mb-2"><small style="color: var(--text-dark-gray);">Children</small>';
+        html += '<div style="color: var(--text-dark-gray);">None</div>';
+        html += '<button class="btn btn-sm btn-outline-warning mt-1" onclick="event.stopPropagation();window.TreeRendererConfig.addPerson(\'child\', \'' + section + '\', \'' + personId + '\')"><i class="fas fa-plus me-1"></i>Add Child</button>';
+        html += '</div>';
     }
+
     if (person.spouse_id) {
-        html += '<div class="col-sm-6 mb-2"><small style="color: var(--text-dark-gray);">Spouse ID</small><div style="color: var(--text-gray);">' + escapeAttr(person.spouse_id) + "</div></div>";
+        var spouseName = cfg.getPersonName ? cfg.getPersonName(person.spouse_id) : "";
+        var spouseLabel = spouseName ? spouseName + " (" + person.spouse_id + ")" : person.spouse_id;
+        html += '<div class="col-sm-6 mb-2"><small style="color: var(--text-dark-gray);">Spouse</small><div style="color: var(--text-gray);">' + escapeAttr(spouseLabel) + "</div></div>";
     }
 
     html += "</div></div>";
@@ -340,8 +383,150 @@ function renderAllSections(treeData) {
     return html;
 }
 
+function _ensureAddPersonModal() {
+    if (document.getElementById("addPersonModal")) return;
+    var m = document.createElement("div");
+    m.innerHTML = ''
+        + '<div class="modal fade" id="addPersonModal" tabindex="-1">'
+        + '<div class="modal-dialog"><div class="modal-content" style="background-color: var(--primary-black, #1a1a1a); border: 1px solid var(--light-black, #333);">'
+        + '<div class="modal-header" style="border-bottom: 1px solid var(--light-black, #333);"><h5 class="modal-title" id="addPersonModalTitle" style="color: var(--gold-primary, #d4af37);"></h5>'
+        + '<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>'
+        + '<div class="modal-body">'
+        + '<input type="hidden" id="addPersonRelationship"><input type="hidden" id="addPersonSection"><input type="hidden" id="addPersonRelativeId">'
+
+        // Step 1: Choose mode
+        + '<div id="addPersonStep1">'
+        + '<p style="color: var(--text-gray);">How would you like to add this person?</p>'
+        + '<div class="d-grid gap-2">'
+        + '<button class="btn btn-outline-warning" onclick="window._addPersonShowLookup()"><i class="fas fa-search me-2"></i>Look up existing person from FamilySearch</button>'
+        + '<button class="btn btn-outline-secondary" onclick="window._addPersonShowNew()"><i class="fas fa-user-plus me-2"></i>Create new person (not in FamilySearch)</button>'
+        + '</div></div>'
+
+        // Step 2a: FS Lookup
+        + '<div id="addPersonStepLookup" style="display:none;">'
+        + '<div class="mb-3"><label class="form-label">FamilySearch Person ID</label><input type="text" class="form-control" id="addPersonFsId" placeholder="e.g. KWQS-BYD"></div>'
+        + '<button class="btn btn-outline-warning btn-sm mb-3" onclick="window._addPersonLookupFs()"><i class="fas fa-search me-1"></i>Look Up</button>'
+        + '<div id="addPersonLookupResult" style="display:none;" class="p-3 mb-3" style="border:1px solid var(--light-black,#333); border-radius:8px; background:var(--deep-black,#111);"></div>'
+        + '</div>'
+
+        // Step 2b: New Person
+        + '<div id="addPersonStepNew" style="display:none;">'
+        + '<div class="row"><div class="col-6 mb-3"><label class="form-label">First Name <span style="color:#dc3545;">*</span></label><input type="text" class="form-control" id="addPersonFirstName"></div>'
+        + '<div class="col-6 mb-3"><label class="form-label">Last Name</label><input type="text" class="form-control" id="addPersonLastName"></div></div>'
+        + '<div class="mb-3"><label class="form-label">Gender</label><select class="form-select" id="addPersonGender"><option value="Male" selected>Male</option><option value="Female">Female</option></select></div>'
+        + '<div class="mb-3"><label class="form-label">Birth Date</label><input type="text" class="form-control" id="addPersonBirth" placeholder="e.g. 15 March 1985"></div>'
+        + '</div>'
+
+        // Spouse confirmation (shown for "child" relationship)
+        + '<div id="addPersonSpouseConfirm" style="display:none;" class="mb-3">'
+        + '<div class="form-check"><input class="form-check-input" type="checkbox" id="addPersonIncludeSpouse" checked>'
+        + '<label class="form-check-label" for="addPersonIncludeSpouse" id="addPersonSpouseLabel" style="color:var(--text-gray);"></label></div>'
+        + '</div>'
+
+        + '<input type="hidden" id="addPersonId"><input type="hidden" id="addPersonMode">'
+        + '<div id="addPersonError" class="text-danger small mt-2" style="display:none;"></div>'
+        + '</div>'
+        + '<div class="modal-footer" style="border-top: 1px solid var(--light-black, #333);">'
+        + '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>'
+        + '<button type="button" class="btn" id="addPersonSubmitBtn" style="display:none; background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%); color: #000; font-weight: 600;" onclick="window.TreeRendererConfig.submitAddPerson()"><i class="fas fa-plus me-1"></i>Add Person</button>'
+        + '</div></div></div></div>';
+    document.body.appendChild(m.firstChild);
+
+    window._addPersonShowLookup = function() {
+        document.getElementById("addPersonStep1").style.display = "none";
+        document.getElementById("addPersonStepLookup").style.display = "";
+        document.getElementById("addPersonStepNew").style.display = "none";
+        document.getElementById("addPersonSubmitBtn").style.display = "none";
+        document.getElementById("addPersonMode").value = "lookup";
+        document.getElementById("addPersonFsId").value = "";
+        document.getElementById("addPersonLookupResult").style.display = "none";
+    };
+
+    window._addPersonShowNew = function() {
+        document.getElementById("addPersonStep1").style.display = "none";
+        document.getElementById("addPersonStepLookup").style.display = "none";
+        document.getElementById("addPersonStepNew").style.display = "";
+        document.getElementById("addPersonSubmitBtn").style.display = "";
+        document.getElementById("addPersonMode").value = "new";
+        document.getElementById("addPersonId").value = "";
+        document.getElementById("addPersonFirstName").value = "";
+        document.getElementById("addPersonLastName").value = "";
+        document.getElementById("addPersonBirth").value = "";
+        _showSpouseConfirm();
+    };
+
+    window._addPersonLookupFs = function() {
+        var fsId = (document.getElementById("addPersonFsId").value || "").trim();
+        if (!fsId) return;
+        var cfg = window.TreeRendererConfig;
+        if (cfg.lookupFsPerson) {
+            cfg.lookupFsPerson(fsId, function(person) {
+                var resultEl = document.getElementById("addPersonLookupResult");
+                if (!person) {
+                    resultEl.innerHTML = '<span style="color:#ffb4b4;">Person not found. Check the ID and try again.</span>';
+                    resultEl.style.display = "";
+                    document.getElementById("addPersonSubmitBtn").style.display = "none";
+                    return;
+                }
+                var name = (person.name || "Unknown");
+                var birth = (person.birth || "");
+                resultEl.innerHTML = '<div style="border:1px solid var(--light-black,#333); border-radius:8px; padding:12px; background:var(--deep-black,#111);">'
+                    + '<div style="color:var(--text-gray); font-weight:600;">' + escapeAttr(name) + '</div>'
+                    + '<div class="small" style="color:var(--text-dark-gray);">' + escapeAttr(fsId) + (birth ? " &middot; Born: " + escapeAttr(birth) : "") + '</div>'
+                    + '</div>';
+                resultEl.style.display = "";
+                document.getElementById("addPersonId").value = fsId;
+                document.getElementById("addPersonSubmitBtn").style.display = "";
+                _showSpouseConfirm();
+            });
+        }
+    };
+
+    function _showSpouseConfirm() {
+        var rel = document.getElementById("addPersonRelationship").value;
+        var section = document.getElementById("addPersonSection").value;
+        var relativeId = document.getElementById("addPersonRelativeId").value;
+        var spouseDiv = document.getElementById("addPersonSpouseConfirm");
+        if (rel !== "child" || section !== "desc") { spouseDiv.style.display = "none"; return; }
+        var cfg = window.TreeRendererConfig;
+        var state = cfg.getState();
+        var treeData = state.treeData || {};
+        var descData = treeData.desc || {};
+        var relative = descData[relativeId];
+        if (!relative) { spouseDiv.style.display = "none"; return; }
+        var spouseIds = getSpouseIds(relative);
+        if (!spouseIds.length) { spouseDiv.style.display = "none"; return; }
+        var spouseName = cfg.getPersonName ? cfg.getPersonName(spouseIds[0]) : spouseIds[0];
+        var label = document.getElementById("addPersonSpouseLabel");
+        label.textContent = "Also add as child of " + spouseName + " (" + spouseIds[0] + ")?";
+        document.getElementById("addPersonIncludeSpouse").checked = true;
+        spouseDiv.style.display = "";
+    }
+}
+
+function showAddPersonModal(relationship, section, relativeId) {
+    _ensureAddPersonModal();
+    var title = relationship === "parent" ? "Add Parent" : "Add Child";
+    document.getElementById("addPersonModalTitle").innerHTML = '<i class="fas fa-user-plus me-2"></i>' + title;
+    document.getElementById("addPersonRelationship").value = relationship;
+    document.getElementById("addPersonSection").value = section;
+    document.getElementById("addPersonRelativeId").value = relativeId;
+    document.getElementById("addPersonStep1").style.display = "";
+    document.getElementById("addPersonStepLookup").style.display = "none";
+    document.getElementById("addPersonStepNew").style.display = "none";
+    document.getElementById("addPersonSubmitBtn").style.display = "none";
+    document.getElementById("addPersonSpouseConfirm").style.display = "none";
+    document.getElementById("addPersonLookupResult").style.display = "none";
+    document.getElementById("addPersonError").style.display = "none";
+    document.getElementById("addPersonId").value = "";
+    document.getElementById("addPersonMode").value = "";
+    var modal = new bootstrap.Modal(document.getElementById("addPersonModal"));
+    modal.show();
+}
+
 // Expose public API
 window.TreeRenderer = {
+    showAddPersonModal: showAddPersonModal,
     escapeAttr: escapeAttr,
     formatName: formatName,
     getImageName: getImageName,

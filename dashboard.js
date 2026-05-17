@@ -62,7 +62,7 @@ function extractPersonIdFromSlug(slug) {
 }
 
 window.TreeRendererConfig = {
-    getState: function() { return { expandedPersonId: dashboardState.expandedPersonId, editingField: dashboardState.editingField }; },
+    getState: function() { return { expandedPersonId: dashboardState.expandedPersonId, editingField: dashboardState.editingField, treeData: dashboardState.treeData }; },
     togglePersonDetail: function(key) { dashboardState.expandedPersonId = dashboardState.expandedPersonId === key ? null : key; dashboardState.editingField = null; renderDataList(); },
     startEdit: function(key) { startEdit(key); },
     cancelEdit: function() { cancelEdit(); },
@@ -71,6 +71,30 @@ window.TreeRendererConfig = {
     triggerCoupleImageUpload: function(p, s) { triggerCoupleImageUpload(p, s); },
     loadPersonImage: function(id, name) { loadPersonImage(id, name); },
     loadCoupleImage: function(id, path) { loadCoupleImage(id, path); },
+    getPersonName: function(pid) {
+        var sections = ["husb", "wife", "kids", "sibs", "desc"];
+        for (var i = 0; i < sections.length; i++) {
+            var d = dashboardState.treeData[sections[i]];
+            if (d && d[pid] && d[pid].name) return formatName(d[pid].name);
+        }
+        return dashboardState.personNames[pid] || "";
+    },
+    addPerson: function(relationship, section, relativeId) {
+        window.TreeRenderer.showAddPersonModal(relationship, section, relativeId);
+    },
+    lookupFsPerson: function(fsId, callback) {
+        var apiBase = (DASHBOARD_CONFIG.FS_API_BASE_URL || "https://api.familysearch.org") + "/platform/tree";
+        fetch(apiBase + "/persons/" + fsId, {
+            headers: { "Accept": "application/x-gedcomx-v1+json", "Authorization": "Bearer " + dashboardState.accessToken }
+        }).then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(data) {
+            if (!data || !data.persons || !data.persons[0]) { callback(null); return; }
+            var p = data.persons[0];
+            var d = p.display || {};
+            callback({ name: d.name || "Unknown", birth: d.birthDate || "", death: d.deathDate || "", gender: d.gender || "" });
+        }).catch(function() { callback(null); });
+    },
+    submitAddPerson: function() { submitAddPerson(); },
 };
 
 function getCookie(name) {
@@ -576,6 +600,76 @@ async function saveFieldEdit(section, personId, fieldName, newValue) {
     } catch (error) {
         console.error("Error saving field:", error);
         alert("Failed to save changes. Please try again.");
+    }
+}
+
+async function submitAddPerson() {
+    var mode = document.getElementById("addPersonMode").value;
+    var personId = (document.getElementById("addPersonId").value || "").trim();
+    var relationship = document.getElementById("addPersonRelationship").value;
+    var section = document.getElementById("addPersonSection").value;
+    var relativeId = document.getElementById("addPersonRelativeId").value;
+    var errEl = document.getElementById("addPersonError");
+
+    var firstName = "", lastName = "", birth = "", gender = "Male";
+    if (mode === "new") {
+        firstName = (document.getElementById("addPersonFirstName").value || "").trim();
+        lastName = (document.getElementById("addPersonLastName").value || "").trim();
+        gender = (document.getElementById("addPersonGender").value || "Male");
+        birth = (document.getElementById("addPersonBirth").value || "").trim();
+        if (!firstName) {
+            if (errEl) { errEl.textContent = "First name is required."; errEl.style.display = ""; }
+            return;
+        }
+    }
+
+    if (!personId && mode !== "new") {
+        if (errEl) { errEl.textContent = "No person selected."; errEl.style.display = ""; }
+        return;
+    }
+
+    var includeSpouse = false;
+    var spouseConfirm = document.getElementById("addPersonSpouseConfirm");
+    if (spouseConfirm && spouseConfirm.style.display !== "none") {
+        includeSpouse = document.getElementById("addPersonIncludeSpouse").checked;
+    }
+
+    var createOnFs = false;
+    if (mode === "new" && dashboardState.accessToken) {
+        createOnFs = confirm("Also create this person on FamilySearch?\n\n(OK = create on FamilySearch with a real ID, Cancel = local only)");
+    }
+
+    var payload = getLookupPayload();
+    payload.person_id = personId || "";
+    payload.first_name = firstName;
+    payload.last_name = lastName;
+    payload.gender = gender;
+    payload.birth = birth;
+    payload.relationship = relationship;
+    payload.relative_id = relativeId;
+    payload.data_type = section;
+    payload.mode = mode;
+    payload.include_spouse = includeSpouse;
+    payload.access_token = dashboardState.accessToken;
+    payload.create_on_fs = createOnFs;
+
+    try {
+        var response = await fetch(TREE_BACKEND_BASE_URL + "/people/tree/add-person", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+            var err = await response.json();
+            throw new Error(err.error || "Failed to add person");
+        }
+        var modal = bootstrap.Modal.getInstance(document.getElementById("addPersonModal"));
+        if (modal) modal.hide();
+        var result = await response.json();
+        if (result.person_name) learnPersonName(personId, result.person_name);
+        await loadTreeData();
+    } catch (error) {
+        if (errEl) { errEl.textContent = error.message; errEl.style.display = ""; }
     }
 }
 
