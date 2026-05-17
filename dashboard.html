@@ -285,6 +285,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
     <script src="/api/public-config.js"></script>
     <script src="image-cropper.js"></script>
+    <script src="tree-renderer.js"></script>
     <script src="dashboard.js"></script>
     <script src="price-calculator.js"></script>
     <script>
@@ -345,30 +346,26 @@
             var loadingEl = document.getElementById('loadingIndicator');
             if (loadingEl) loadingEl.classList.remove('d-none');
 
-            var formData = new FormData();
-            formData.append('contact_name', contactName);
-            formData.append('contact_email', contactEmail);
-            formData.append('contact_phone', contactPhone || 'Not provided');
-            formData.append('starting_person_id', startingPerson);
-            formData.append('title', familyName);
-            formData.append('generations', generations);
-            formData.append('tree_type', treeType);
-            formData.append('theme', backendTheme);
-            formData.append('access_token', window.accessToken || '');
-            formData.append('storage_scope_id', dashboardState ? dashboardState.userScopeId : '');
-            formData.append('storage_scope_context_id', dashboardState ? dashboardState.selectedContextId : '');
-
-            if (paymentStatusData && paymentStatusData.paid) {
-                formData.append('request_id', window.stripePayment ? window.stripePayment.requestId : '');
-                formData.append('payment_verified', 'true');
-                formData.append('amount_paid', paymentStatusData.amountPaid != null ? String(paymentStatusData.amountPaid) : '');
-            }
-
             var TREE_BACKEND = (window.APP_CONFIG && window.APP_CONFIG.TREE_BACKEND_BASE_URL) || 'http://localhost:8000';
-            var endpoint = treeType === 'descendant' ? '/build_descendant_tree' : '/build_tree';
+
+            var payload = {
+                user_scope_id: dashboardState ? dashboardState.userScopeId : '',
+                context_id: dashboardState ? dashboardState.selectedContextId : '',
+                tree_type: treeType,
+                theme: backendTheme,
+                title: familyName,
+                max_generations: parseInt(generations, 10) || 5,
+                contact_email: contactEmail,
+                contact_name: contactName,
+                contact_phone: contactPhone || ''
+            };
 
             try {
-                var response = await fetch(TREE_BACKEND + endpoint, { method: 'POST', body: formData });
+                var response = await fetch(TREE_BACKEND + '/build_chart', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
                 if (!response.ok) {
                     var errData = await response.json();
                     throw new Error(errData.error || 'Submission failed');
@@ -376,7 +373,7 @@
                 if (loadingEl) loadingEl.classList.add('d-none');
                 var successEl = document.getElementById('successMessage');
                 if (successEl) successEl.classList.remove('d-none');
-                setTimeout(function() { if (typeof loadChartBuilds === 'function') loadChartBuilds(); }, 3000);
+                setTimeout(function() { if (typeof loadChartBuilds === 'function') loadChartBuilds(); }, 5000);
             } catch (error) {
                 if (loadingEl) loadingEl.classList.add('d-none');
                 var errEl2 = document.getElementById('errorMessage');

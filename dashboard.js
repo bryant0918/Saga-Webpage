@@ -61,6 +61,18 @@ function extractPersonIdFromSlug(slug) {
     return slug;
 }
 
+window.TreeRendererConfig = {
+    getState: function() { return { expandedPersonId: dashboardState.expandedPersonId, editingField: dashboardState.editingField }; },
+    togglePersonDetail: function(key) { dashboardState.expandedPersonId = dashboardState.expandedPersonId === key ? null : key; dashboardState.editingField = null; renderDataList(); },
+    startEdit: function(key) { startEdit(key); },
+    cancelEdit: function() { cancelEdit(); },
+    saveFieldEdit: function(s, p, f, v) { saveFieldEdit(s, p, f, v); },
+    triggerImageUpload: function(s, p) { triggerImageUpload(s, p); },
+    triggerCoupleImageUpload: function(p, s) { triggerCoupleImageUpload(p, s); },
+    loadPersonImage: function(id, name) { loadPersonImage(id, name); },
+    loadCoupleImage: function(id, path) { loadCoupleImage(id, path); },
+};
+
 function getCookie(name) {
     var nameEQ = name + "=";
     var ca = document.cookie.split(";");
@@ -139,17 +151,6 @@ function getImageName(imagePath) {
     if (!imagePath) return null;
     var parts = String(imagePath).replace(/\\/g, "/").split("/");
     return parts[parts.length - 1] || null;
-}
-
-function sortByGenerationThenName(data, keys) {
-    return keys.sort(function(a, b) {
-        var pa = data[a] || {};
-        var pb = data[b] || {};
-        var ga = Number.isFinite(pa.generation) ? pa.generation : 999;
-        var gb = Number.isFinite(pb.generation) ? pb.generation : 999;
-        if (ga !== gb) return ga - gb;
-        return formatName(pa.name).localeCompare(formatName(pb.name));
-    });
 }
 
 async function fetchCurrentPerson(accessToken) {
@@ -511,25 +512,6 @@ async function fetchNextAncestorGeneration() {
     }
 }
 
-function getPeopleSectionEntries(sectionKey, data) {
-    if (!data) return [];
-    var keys = Object.keys(data);
-
-    if (sectionKey === "kids") {
-        keys.sort(function(a, b) {
-            var ya = data[a] && data[a].birth_year ? data[a].birth_year : 9999;
-            var yb = data[b] && data[b].birth_year ? data[b].birth_year : 9999;
-            return ya - yb;
-        });
-    } else {
-        sortByGenerationThenName(data, keys);
-    }
-
-    return keys.map(function(id) {
-        return { id: id, person: data[id] };
-    });
-}
-
 function togglePersonDetail(expandKey) {
     if (dashboardState.expandedPersonId === expandKey) {
         dashboardState.expandedPersonId = null;
@@ -821,422 +803,6 @@ async function selectAsStartingPerson(personId) {
     await fetchSelectedContextData();
 }
 
-function buildEditableField(label, value, fieldKey, section, personId, fieldName) {
-    var isEditing = dashboardState.editingField === fieldKey;
-    var safeKey = fieldKey.replace(/[^a-zA-Z0-9]/g, "_");
-    var html = "";
-
-    if (isEditing) {
-        html += '<div class="col-sm-6 mb-2">';
-        html += '<small style="color: var(--text-dark-gray);">' + label + "</small>";
-        html += '<div class="d-flex align-items-center gap-2 mt-1">';
-        html += '<input type="text" id="edit-input-' + safeKey + '" class="form-control form-control-sm" value="' + escapeAttr(value || "") + '" style="background-color: var(--light-black); color: var(--text-gray); border-color: var(--gold-primary); max-width: 200px;">';
-        html += '<button class="btn btn-sm" onclick="var v=document.getElementById(\'edit-input-' + safeKey + '\').value;saveFieldEdit(\'' + section + '\',\'' + personId + '\',\'' + fieldName + '\',v)" style="color: var(--gold-primary); padding: 2px 8px;" title="Save"><i class="fas fa-check"></i></button>';
-        html += '<button class="btn btn-sm" onclick="cancelEdit()" style="color: var(--text-dark-gray); padding: 2px 8px;" title="Cancel"><i class="fas fa-times"></i></button>';
-        html += "</div></div>";
-    } else {
-        html += '<div class="col-sm-6 mb-2">';
-        html += '<small style="color: var(--text-dark-gray);">' + label + "</small>";
-        html += '<div class="d-flex align-items-center gap-2">';
-        html += '<span style="color: var(--text-gray);">' + escapeAttr(value || "-") + "</span>";
-        html += '<button class="btn btn-sm p-0" onclick="event.stopPropagation();startEdit(\'' + fieldKey + '\')" style="color: var(--text-dark-gray); line-height: 1;" title="Edit ' + label + '"><i class="fas fa-pen-to-square" style="font-size: 0.75rem;"></i></button>';
-        html += "</div></div>";
-    }
-
-    return html;
-}
-
-function buildPersonDetailHTML(person, personId, section) {
-    var html = '<div class="person-detail-content p-3" style="background-color: var(--deep-black); border-radius: 8px;">';
-    var imageName = getImageName(person.image);
-    var imgId = "person-img-" + section + "-" + personId.replace(/[^a-zA-Z0-9]/g, "_");
-
-    html += '<div class="text-center mb-3">';
-    html += '<div style="display: inline-block; position: relative; cursor: pointer;" onclick="event.stopPropagation();triggerImageUpload(\'' + section + '\',\'' + personId + '\')">';
-    html += '<img id="' + imgId + '" alt="' + escapeAttr(formatName(person.name)) + '" style="display: none; max-width: 110px; max-height: 110px; border-radius: 50%; border: 2px solid var(--gold-primary);">';
-    html += '<div id="' + imgId + '_placeholder" style="width: 110px; height: 110px; border-radius: 50%; border: 2px dashed var(--light-black); display: flex; align-items: center; justify-content: center; margin: 0 auto;">';
-    html += '<i class="fas fa-camera" style="color: var(--text-dark-gray); font-size: 1.3rem;"></i>';
-    html += "</div>";
-    html += '<div style="position: absolute; bottom: 2px; right: 2px; background: var(--gold-primary); color: var(--deep-black); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.65rem;"><i class="fas fa-pen"></i></div>';
-    html += "</div></div>";
-
-    if (imageName) {
-        setTimeout(function() {
-            loadPersonImage(imgId, imageName);
-            var placeholder = document.getElementById(imgId + "_placeholder");
-            var imgEl = document.getElementById(imgId);
-            if (imgEl) {
-                imgEl.addEventListener("load", function() {
-                    if (placeholder) placeholder.style.display = "none";
-                });
-            }
-        }, 0);
-    }
-
-    html += '<div class="row">';
-    html += '<div class="col-sm-6 mb-2"><small style="color: var(--text-dark-gray);">Person ID</small><div style="color: var(--text-gray);">' + escapeAttr(personId) + "</div></div>";
-
-    if (person.generation !== undefined) {
-        html += '<div class="col-sm-6 mb-2"><small style="color: var(--text-dark-gray);">Generation</small><div style="color: var(--text-gray);">' + escapeAttr(person.generation) + "</div></div>";
-    }
-
-    var firstName = Array.isArray(person.name) ? (person.name[0] || "") : formatName(person.name);
-    var lastName = Array.isArray(person.name) ? (person.name[1] || "") : "";
-
-    var fKey = section + "_" + personId + "_first_name";
-    var lKey = section + "_" + personId + "_last_name";
-    html += buildEditableField("First Name", firstName, fKey, section, personId, "first_name");
-    html += buildEditableField("Last Name", lastName, lKey, section, personId, "last_name");
-
-    if (person.birth !== undefined) {
-        var bKey = section + "_" + personId + "_birth";
-        html += buildEditableField("Birth", person.birth || "", bKey, section, personId, "birth");
-    }
-
-    if (person.death !== undefined) {
-        var dKey = section + "_" + personId + "_death";
-        html += buildEditableField("Death", person.death || "", dKey, section, personId, "death");
-    }
-
-    if (Array.isArray(person.parents) && person.parents.length) {
-        html += '<div class="col-12 mb-2"><small style="color: var(--text-dark-gray);">Parents</small><div style="color: var(--text-gray);">' + escapeAttr(person.parents.join(", ")) + "</div></div>";
-    }
-
-    if (Array.isArray(person.children) && person.children.length) {
-        html += '<div class="col-12 mb-2"><small style="color: var(--text-dark-gray);">Children</small><div style="color: var(--text-gray);">' + escapeAttr(person.children.join(", ")) + "</div></div>";
-    }
-
-    if (person.spouse_id) {
-        html += '<div class="col-sm-6 mb-2"><small style="color: var(--text-dark-gray);">Spouse ID</small><div style="color: var(--text-gray);">' + escapeAttr(person.spouse_id) + "</div></div>";
-    }
-
-    if (person.relation) {
-        html += '<div class="col-sm-6 mb-2"><small style="color: var(--text-dark-gray);">Relation</small><div style="color: var(--text-gray);">' + escapeAttr(person.relation) + "</div></div>";
-    }
-
-    html += "</div></div>";
-    return html;
-}
-
-function buildPersonListItem(person, personId, section, sectionLabel) {
-    var name = formatName(person.name);
-    var expandKey = section + "_" + personId;
-    var isExpanded = dashboardState.expandedPersonId === expandKey;
-
-    var html = '<div class="person-list-item mb-2">';
-    html += '<div class="d-flex align-items-center justify-content-between p-3" style="background-color: var(--primary-black); border: 1px solid var(--light-black); border-radius: 8px; cursor: pointer; transition: all 0.2s ease;" onclick="togglePersonDetail(\'' + expandKey + '\')" onmouseover="this.style.borderColor=\'var(--gold-primary)\'" onmouseout="this.style.borderColor=\'var(--light-black)\'">';
-
-    html += '<div class="d-flex align-items-center">';
-    html += '<div style="width: 34px; height: 34px; border-radius: 50%; background-color: var(--light-black); display: flex; align-items: center; justify-content: center; margin-right: 10px;"><i class="fas fa-user" style="color: var(--gold-primary); font-size: 0.8rem;"></i></div>';
-    html += "<div>";
-    html += '<div style="color: var(--text-gray); font-weight: 500;">' + escapeAttr(name) + "</div>";
-    html += '<small style="color: var(--text-dark-gray);">' + escapeAttr(sectionLabel) + "</small>";
-    html += "</div></div>";
-
-    html += '<div class="actions d-flex align-items-center gap-2">';
-    html += '<button class="btn btn-outline-warning btn-sm" onclick="event.stopPropagation();selectAsStartingPerson(\'' + personId + '\')" title="Set as starting person"><i class="fas fa-crosshairs"></i></button>';
-    html += '<i class="fas fa-chevron-' + (isExpanded ? "up" : "down") + '" style="color: var(--text-dark-gray);"></i>';
-    html += "</div></div>";
-
-    if (isExpanded) {
-        html += '<div class="mt-1 ms-3">' + buildPersonDetailHTML(person, personId, section) + "</div>";
-    }
-
-    html += "</div>";
-    return html;
-}
-
-function deriveGenerationsFromParentGraph(data) {
-    var generationById = {};
-    if (!data) return generationById;
-
-    var ids = Object.keys(data);
-    if (!ids.length) return generationById;
-
-    var referencedParents = {};
-    ids.forEach(function(id) {
-        var person = data[id] || {};
-        var parents = Array.isArray(person.parents) ? person.parents : [];
-        parents.forEach(function(parentId) {
-            referencedParents[parentId] = true;
-        });
-    });
-
-    var roots = ids.filter(function(id) {
-        return !referencedParents[id];
-    });
-    if (!roots.length) roots = [ids[0]];
-
-    var queue = roots.map(function(id) {
-        return { id: id, generation: 1 };
-    });
-
-    while (queue.length) {
-        var current = queue.shift();
-        var id = current.id;
-        var generation = current.generation;
-        if (!data[id]) continue;
-
-        if (generationById[id] !== undefined && generationById[id] <= generation) {
-            continue;
-        }
-        generationById[id] = generation;
-
-        var person = data[id] || {};
-        var parents = Array.isArray(person.parents) ? person.parents : [];
-        parents.forEach(function(parentId) {
-            if (data[parentId]) {
-                queue.push({ id: parentId, generation: generation + 1 });
-            }
-        });
-    }
-
-    return generationById;
-}
-
-function getSpouseIds(person) {
-    if (!person) return [];
-    if (Array.isArray(person.spouse_ids)) {
-        return person.spouse_ids.filter(Boolean).map(String);
-    }
-    if (Array.isArray(person.spouses)) {
-        return person.spouses.filter(Boolean).map(String);
-    }
-    if (person.spouse_id) return [String(person.spouse_id)];
-    return [];
-}
-
-function buildCoupleRows(entries) {
-    var byId = {};
-    entries.forEach(function(entry) {
-        byId[entry.id] = entry;
-    });
-
-    // Build bidirectional spouse map
-    var spouseMap = {};
-    entries.forEach(function(entry) {
-        var spouseIds = getSpouseIds(entry.person);
-        spouseIds.forEach(function(sid) {
-            if (byId[sid]) {
-                spouseMap[entry.id] = sid;
-                spouseMap[sid] = entry.id;
-            }
-        });
-    });
-
-    var used = {};
-    var rows = [];
-
-    entries.forEach(function(entry) {
-        if (used[entry.id]) return;
-
-        var partnerId = spouseMap[entry.id];
-        if (partnerId && byId[partnerId] && !used[partnerId]) {
-            used[entry.id] = true;
-            used[partnerId] = true;
-            rows.push([entry, byId[partnerId]]);
-            return;
-        }
-
-        used[entry.id] = true;
-        rows.push([entry]);
-    });
-
-    return rows;
-}
-
-function renderEntryRows(entries, section, label) {
-    var rows = buildCoupleRows(entries);
-    var html = "";
-
-    rows.forEach(function(rowEntries) {
-        html += '<div class="row g-2 mb-1">';
-        rowEntries.forEach(function(entry) {
-            html += '<div class="col-12 col-lg-6">';
-            html += buildPersonListItem(
-                entry.person,
-                entry.id,
-                entry.section || section,
-                entry.label || label
-            );
-            html += "</div>";
-        });
-        if (rowEntries.length === 1) {
-            html += '<div class="col-12 col-lg-6"></div>';
-        }
-        html += "</div>";
-
-        if (section === "desc") {
-            var personA = rowEntries[0];
-            var personB = rowEntries.length === 2 ? rowEntries[1] : null;
-            var spouseId = personB ? personB.id : (getSpouseIds(personA.person)[0] || "");
-            if (spouseId) {
-                var coupleImg = (personA.person && personA.person.couple_image) || (personB && personB.person && personB.person.couple_image);
-                var coupleImgId = "couple-img-" + personA.id + "-" + spouseId;
-                html += '<div class="text-center mb-2 mt-1">';
-                if (coupleImg) {
-                    html += '<div style="display: inline-block; position: relative; cursor: pointer;" onclick="triggerCoupleImageUpload(\'' + escapeAttr(personA.id) + '\',\'' + escapeAttr(spouseId) + '\')">';
-                    html += '<img id="' + coupleImgId + '" alt="Couple photo" style="display: none; max-width: 140px; max-height: 100px; border-radius: 8px; border: 2px solid var(--gold-primary);">';
-                    html += '<div id="' + coupleImgId + '_placeholder" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 6px; border: 1px dashed var(--gold-primary); color: var(--gold-primary); font-size: 0.8rem; cursor: pointer;">';
-                    html += '<i class="fas fa-image"></i> Loading couple photo...</div>';
-                    html += '<div style="position: absolute; bottom: 2px; right: 2px; background: var(--gold-primary); color: var(--deep-black); width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.55rem;"><i class="fas fa-pen"></i></div>';
-                    html += '</div>';
-                    setTimeout(function() { loadCoupleImage(coupleImgId, coupleImg); }, 0);
-                } else {
-                    html += '<button class="btn btn-sm" style="border: 1px dashed var(--light-black); color: var(--text-dark-gray); font-size: 0.8rem;" onclick="triggerCoupleImageUpload(\'' + escapeAttr(personA.id) + '\',\'' + escapeAttr(spouseId) + '\')">';
-                    html += '<i class="fas fa-image me-1"></i>Upload Couple Photo</button>';
-                }
-                html += '</div>';
-            }
-        }
-    });
-
-    return html;
-}
-
-function deriveAncestorSpouses(primaryData, spouseData) {
-    var allDatasets = [primaryData, spouseData];
-    var spouseMap = {};
-    allDatasets.forEach(function(data) {
-        if (!data) return;
-        Object.keys(data).forEach(function(id) {
-            var parents = data[id] && Array.isArray(data[id].parents) ? data[id].parents : [];
-            if (parents.length === 2) {
-                var a = String(parents[0]);
-                var b = String(parents[1]);
-                if (!spouseMap[a]) spouseMap[a] = b;
-                if (!spouseMap[b]) spouseMap[b] = a;
-            }
-        });
-    });
-
-    var primaryRoot = null;
-    var spouseRoot = null;
-    if (primaryData) {
-        var primaryReferenced = {};
-        Object.keys(primaryData).forEach(function(id) {
-            var parents = primaryData[id] && Array.isArray(primaryData[id].parents) ? primaryData[id].parents : [];
-            parents.forEach(function(pid) { primaryReferenced[pid] = true; });
-        });
-        var primaryRoots = Object.keys(primaryData).filter(function(id) { return !primaryReferenced[id]; });
-        if (primaryRoots.length === 1) primaryRoot = primaryRoots[0];
-    }
-    if (spouseData) {
-        var spouseReferenced = {};
-        Object.keys(spouseData).forEach(function(id) {
-            var parents = spouseData[id] && Array.isArray(spouseData[id].parents) ? spouseData[id].parents : [];
-            parents.forEach(function(pid) { spouseReferenced[pid] = true; });
-        });
-        var spouseRoots = Object.keys(spouseData).filter(function(id) { return !spouseReferenced[id]; });
-        if (spouseRoots.length === 1) spouseRoot = spouseRoots[0];
-    }
-    if (primaryRoot && spouseRoot && !spouseMap[primaryRoot]) {
-        spouseMap[primaryRoot] = spouseRoot;
-        spouseMap[spouseRoot] = primaryRoot;
-    }
-
-    allDatasets.forEach(function(data) {
-        if (!data) return;
-        Object.keys(data).forEach(function(id) {
-            if (spouseMap[id] && !data[id].spouse_id) {
-                data[id].spouse_id = spouseMap[id];
-            }
-        });
-    });
-}
-
-function renderAncestorSections(primaryData, spouseData) {
-    var hasPrimary = primaryData && Object.keys(primaryData).length;
-    var hasSpouse = spouseData && Object.keys(spouseData).length;
-    if (!hasPrimary && !hasSpouse) return "";
-
-    deriveAncestorSpouses(primaryData, spouseData);
-
-    var primaryGen = deriveGenerationsFromParentGraph(primaryData || {});
-    var spouseGen = deriveGenerationsFromParentGraph(spouseData || {});
-    var generationGroups = {};
-    var generationOrder = [];
-
-    function addEntry(id, person, section, label, generation) {
-        var gen = Number.isFinite(person && person.generation)
-            ? person.generation
-            : (Number.isFinite(generation) ? generation : 999);
-        if (!generationGroups[gen]) {
-            generationGroups[gen] = [];
-            generationOrder.push(gen);
-        }
-        generationGroups[gen].push({
-            id: id,
-            person: person,
-            section: section,
-            label: label
-        });
-    }
-
-    if (hasPrimary) {
-        Object.keys(primaryData).forEach(function(id) {
-            addEntry(id, primaryData[id], "husb", "Primary Ancestor", primaryGen[id]);
-        });
-    }
-    if (hasSpouse) {
-        Object.keys(spouseData).forEach(function(id) {
-            addEntry(id, spouseData[id], "wife", "Spouse Ancestor", spouseGen[id]);
-        });
-    }
-
-    generationOrder.sort(function(a, b) { return a - b; });
-
-    var totalCount = (hasPrimary ? Object.keys(primaryData).length : 0) + (hasSpouse ? Object.keys(spouseData).length : 0);
-    var html = '<h5 class="mb-3 mt-4" style="color: var(--gold-primary);"><i class="fas fa-sitemap me-2"></i>Ancestors (' + totalCount + ")</h5>";
-
-    generationOrder.forEach(function(gen) {
-        var heading = gen === 999 ? "Generation Unknown" : ("Generation " + gen);
-        html += '<h6 class="mt-3 mb-2" style="color: var(--text-dark-gray); border-bottom: 1px solid var(--light-black); padding-bottom: 6px;">' + heading + "</h6>";
-        var entries = generationGroups[gen];
-        entries.sort(function(a, b) {
-            return formatName(a.person && a.person.name).localeCompare(formatName(b.person && b.person.name));
-        });
-        html += renderEntryRows(entries, "husb", "Ancestor");
-    });
-
-    return html;
-}
-
-function renderSection(titleHtml, data, section, label, groupByGeneration) {
-    if (!data || !Object.keys(data).length) return "";
-
-    var entries = getPeopleSectionEntries(section, data);
-    var html = '<h5 class="mb-3 mt-4" style="color: var(--gold-primary);">' + titleHtml + " (" + entries.length + ")</h5>";
-
-    if (groupByGeneration) {
-        var derivedGenerationById = deriveGenerationsFromParentGraph(data);
-        var groups = {};
-        var generationOrder = [];
-
-        entries.forEach(function(entry) {
-            var rawGen = entry.person && entry.person.generation;
-            var derivedGen = derivedGenerationById[entry.id];
-            var gen = Number.isFinite(rawGen) ? rawGen : (Number.isFinite(derivedGen) ? derivedGen : 999);
-            if (!groups[gen]) {
-                groups[gen] = [];
-                generationOrder.push(gen);
-            }
-            groups[gen].push(entry);
-        });
-
-        generationOrder.sort(function(a, b) { return a - b; });
-
-        generationOrder.forEach(function(gen) {
-            var heading = gen === 999 ? "Generation Unknown" : ("Generation " + gen);
-            html += '<h6 class="mt-3 mb-2" style="color: var(--text-dark-gray); border-bottom: 1px solid var(--light-black); padding-bottom: 6px;">' + heading + "</h6>";
-            html += renderEntryRows(groups[gen], section, label);
-        });
-    } else {
-        html += renderEntryRows(entries, section, label);
-    }
-
-    return html;
-}
 
 function renderDataList() {
     var container = document.getElementById("dataListContainer");
@@ -1248,12 +814,7 @@ function renderDataList() {
         return;
     }
 
-    var html = "";
-    html += renderAncestorSections(data.husb, data.wife);
-    html += renderSection('<i class="fas fa-people-group me-2"></i>Siblings', data.sibs, "sibs", "Sibling", false);
-    html += renderSection('<i class="fas fa-child me-2"></i>Children', data.kids, "kids", "Child", false);
-    html += renderSection('<i class="fas fa-people-arrows me-2"></i>Descendants', data.desc, "desc", "Descendant", true);
-
+    var html = window.TreeRenderer.renderAllSections(data);
     container.innerHTML = html || '<div class="text-center py-5"><p style="color: var(--text-dark-gray);">No visible people in this context.</p></div>';
 }
 
@@ -1346,12 +907,15 @@ function openBuildTreeDrawer() {
     var startingPerson = document.getElementById("startingPerson");
     var startingPersonSelect = document.getElementById("startingPersonSelect");
 
+    var rootPersonId = extractPersonIdFromSlug(dashboardState.selectedContextId || "") || (dashboardState.currentPerson && dashboardState.currentPerson.id) || "";
+    var rootPersonName = dashboardState.personNames[rootPersonId] || (dashboardState.currentPerson && dashboardState.currentPerson.name) || "";
+
     if (contactName && dashboardState.currentPerson) contactName.value = dashboardState.currentPerson.name;
     if (familyName) {
-        var parts = (dashboardState.currentPerson.name || "").split(" ");
+        var parts = rootPersonName.split(" ");
         familyName.value = parts[parts.length - 1] || "";
     }
-    if (startingPerson && dashboardState.currentPerson) startingPerson.value = dashboardState.currentPerson.id;
+    if (startingPerson) startingPerson.value = rootPersonId;
 
     // Populate starting person dropdown from known people
     if (startingPersonSelect) {
@@ -1376,7 +940,7 @@ function openBuildTreeDrawer() {
         otherOpt.textContent = "Other (enter ID manually)";
         startingPersonSelect.appendChild(otherOpt);
 
-        startingPersonSelect.value = (dashboardState.currentPerson || {}).id || "";
+        startingPersonSelect.value = rootPersonId || (dashboardState.currentPerson || {}).id || "";
         startingPersonSelect.onchange = function() {
             var manualWrapper = document.getElementById("manualIdWrapper");
             var manualInput = document.getElementById("startingPersonManual");
