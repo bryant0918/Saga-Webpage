@@ -40,18 +40,22 @@ function getPublicConfig() {
     FS_BASE_URL: 'https://ident.familysearch.org',
     FS_API_BASE_URL: 'https://api.familysearch.org',
     GETFORM_ENDPOINT: 'https://getform.io/f/bdrgewgb',
-    TREE_BACKEND_BASE_URL: 'https://family-trees.replit.app'
+    TREE_BACKEND_BASE_URL: 'https://family-trees.replit.app',
+    TREE_BACKEND_BASE_URL_DEV: 'http://localhost:5000'
   };
+  const fsEnvironment = (process.env.FS_ENVIRONMENT || defaults.FS_ENVIRONMENT).toLowerCase();
   const baseUrl = process.env.FS_BASE_URL || defaults.FS_BASE_URL;
+  const treeBackendBaseUrl =
+    process.env.TREE_BACKEND_BASE_URL ||
+    (fsEnvironment === 'dev' ? defaults.TREE_BACKEND_BASE_URL_DEV : defaults.TREE_BACKEND_BASE_URL);
   return {
     FS_APP_KEY: process.env.FS_APP_KEY || defaults.FS_APP_KEY,
-    FS_ENVIRONMENT: process.env.FS_ENVIRONMENT || defaults.FS_ENVIRONMENT,
+    FS_ENVIRONMENT: fsEnvironment,
     FS_BASE_URL: baseUrl,
     FS_TOKEN_URL: process.env.FS_TOKEN_URL || `${baseUrl}/cis-web/oauth2/v3/token`,
     FS_API_BASE_URL: process.env.FS_API_BASE_URL || defaults.FS_API_BASE_URL,
     GETFORM_ENDPOINT: process.env.GETFORM_ENDPOINT || defaults.GETFORM_ENDPOINT,
-    TREE_BACKEND_BASE_URL:
-      process.env.TREE_BACKEND_BASE_URL || defaults.TREE_BACKEND_BASE_URL
+    TREE_BACKEND_BASE_URL: treeBackendBaseUrl
   };
 }
 
@@ -79,8 +83,52 @@ app.use('/api/payment-status', require('./api/payment-status'));
 // Webhook must be mounted with raw body parser - handled in the route file
 app.use('/api/stripe-webhook', require('./api/stripe-webhook'));
 
+// Admin route guard - verify FamilySearch identity before serving admin page
+const ADMIN_PERSON_IDS = ['KWN5-J7M', 'KWXJ-J3Z'];
+
+app.get(['/admin', '/admin.html'], async (req, res, next) => {
+  const cookies = (req.headers.cookie || '').split(';').reduce((acc, c) => {
+    const [k, ...v] = c.trim().split('=');
+    if (k) acc[k] = v.join('=');
+    return acc;
+  }, {});
+
+  const token = cookies['fs_access_token'];
+  if (!token) {
+    return res.status(403).send('Access denied');
+  }
+
+  try {
+    const config = getPublicConfig();
+    const apiBase = config.FS_API_BASE_URL + '/platform/tree';
+    const resp = await fetch(`${apiBase}/current-person`, {
+      headers: {
+        'Accept': 'application/x-gedcomx-v1+json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!resp.ok) {
+      return res.status(403).send('Access denied');
+    }
+    const data = await resp.json();
+    const personId = data.persons && data.persons[0] && data.persons[0].id;
+    if (!ADMIN_PERSON_IDS.includes(personId)) {
+      return res.status(403).send('Access denied');
+    }
+    res.sendFile(path.join(__dirname, 'admin.html'));
+  } catch (err) {
+    return res.status(403).send('Access denied');
+  }
+});
+
 // Serve static files (HTML, CSS, JS, images)
-// This serves all files in the root directory as static files
+// Block direct static access to admin.html (handled by guarded route above)
+app.use((req, res, next) => {
+  if (req.path === '/admin.html') {
+    return res.redirect('/admin');
+  }
+  next();
+});
 app.use(express.static(__dirname, {
   extensions: ['html'], // Allows /page to serve page.html
   index: 'index.html'

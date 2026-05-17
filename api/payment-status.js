@@ -13,10 +13,15 @@ function getRedis() {
       tls: {
         rejectUnauthorized: false
       },
-      maxRetriesPerRequest: 3,
-      enableReadyCheck: true,
-      connectTimeout: 10000,
+      maxRetriesPerRequest: 1,
+      enableReadyCheck: false,
+      connectTimeout: 5000,
+      retryStrategy(times) {
+        if (times > 2) return null;
+        return Math.min(times * 500, 2000);
+      },
     });
+    redis.on('error', () => {});
   }
   return redis;
 }
