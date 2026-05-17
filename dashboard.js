@@ -1012,26 +1012,29 @@ function buildCoupleRows(entries) {
         byId[entry.id] = entry;
     });
 
+    // Build bidirectional spouse map
+    var spouseMap = {};
+    entries.forEach(function(entry) {
+        var spouseIds = getSpouseIds(entry.person);
+        spouseIds.forEach(function(sid) {
+            if (byId[sid]) {
+                spouseMap[entry.id] = sid;
+                spouseMap[sid] = entry.id;
+            }
+        });
+    });
+
     var used = {};
     var rows = [];
 
     entries.forEach(function(entry) {
         if (used[entry.id]) return;
 
-        var spouseIds = getSpouseIds(entry.person);
-        var matchedSpouse = null;
-
-        for (var i = 0; i < spouseIds.length; i++) {
-            var spouseId = spouseIds[i];
-            if (!byId[spouseId] || used[spouseId]) continue;
-            matchedSpouse = byId[spouseId];
-            break;
-        }
-
-        if (matchedSpouse) {
+        var partnerId = spouseMap[entry.id];
+        if (partnerId && byId[partnerId] && !used[partnerId]) {
             used[entry.id] = true;
-            used[matchedSpouse.id] = true;
-            rows.push([entry, matchedSpouse]);
+            used[partnerId] = true;
+            rows.push([entry, byId[partnerId]]);
             return;
         }
 
@@ -1063,25 +1066,28 @@ function renderEntryRows(entries, section, label) {
         }
         html += "</div>";
 
-        if (rowEntries.length === 2 && section === "desc") {
+        if (section === "desc") {
             var personA = rowEntries[0];
-            var personB = rowEntries[1];
-            var coupleImg = (personA.person && personA.person.couple_image) || (personB.person && personB.person.couple_image);
-            var coupleImgId = "couple-img-" + personA.id + "-" + personB.id;
-            html += '<div class="text-center mb-2 mt-1">';
-            if (coupleImg) {
-                html += '<div style="display: inline-block; position: relative; cursor: pointer;" onclick="triggerCoupleImageUpload(\'' + escapeAttr(personA.id) + '\',\'' + escapeAttr(personB.id) + '\')">';
-                html += '<img id="' + coupleImgId + '" alt="Couple photo" style="display: none; max-width: 140px; max-height: 100px; border-radius: 8px; border: 2px solid var(--gold-primary);">';
-                html += '<div id="' + coupleImgId + '_placeholder" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 6px; border: 1px dashed var(--gold-primary); color: var(--gold-primary); font-size: 0.8rem; cursor: pointer;">';
-                html += '<i class="fas fa-image"></i> Loading couple photo...</div>';
-                html += '<div style="position: absolute; bottom: 2px; right: 2px; background: var(--gold-primary); color: var(--deep-black); width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.55rem;"><i class="fas fa-pen"></i></div>';
+            var personB = rowEntries.length === 2 ? rowEntries[1] : null;
+            var spouseId = personB ? personB.id : (getSpouseIds(personA.person)[0] || "");
+            if (spouseId) {
+                var coupleImg = (personA.person && personA.person.couple_image) || (personB && personB.person && personB.person.couple_image);
+                var coupleImgId = "couple-img-" + personA.id + "-" + spouseId;
+                html += '<div class="text-center mb-2 mt-1">';
+                if (coupleImg) {
+                    html += '<div style="display: inline-block; position: relative; cursor: pointer;" onclick="triggerCoupleImageUpload(\'' + escapeAttr(personA.id) + '\',\'' + escapeAttr(spouseId) + '\')">';
+                    html += '<img id="' + coupleImgId + '" alt="Couple photo" style="display: none; max-width: 140px; max-height: 100px; border-radius: 8px; border: 2px solid var(--gold-primary);">';
+                    html += '<div id="' + coupleImgId + '_placeholder" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 6px; border: 1px dashed var(--gold-primary); color: var(--gold-primary); font-size: 0.8rem; cursor: pointer;">';
+                    html += '<i class="fas fa-image"></i> Loading couple photo...</div>';
+                    html += '<div style="position: absolute; bottom: 2px; right: 2px; background: var(--gold-primary); color: var(--deep-black); width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.55rem;"><i class="fas fa-pen"></i></div>';
+                    html += '</div>';
+                    setTimeout(function() { loadCoupleImage(coupleImgId, coupleImg); }, 0);
+                } else {
+                    html += '<button class="btn btn-sm" style="border: 1px dashed var(--light-black); color: var(--text-dark-gray); font-size: 0.8rem;" onclick="triggerCoupleImageUpload(\'' + escapeAttr(personA.id) + '\',\'' + escapeAttr(spouseId) + '\')">';
+                    html += '<i class="fas fa-image me-1"></i>Upload Couple Photo</button>';
+                }
                 html += '</div>';
-                setTimeout(function() { loadCoupleImage(coupleImgId, coupleImg); }, 0);
-            } else {
-                html += '<button class="btn btn-sm" style="border: 1px dashed var(--light-black); color: var(--text-dark-gray); font-size: 0.8rem;" onclick="triggerCoupleImageUpload(\'' + escapeAttr(personA.id) + '\',\'' + escapeAttr(personB.id) + '\')">';
-                html += '<i class="fas fa-image me-1"></i>Upload Couple Photo</button>';
             }
-            html += '</div>';
         }
     });
 
