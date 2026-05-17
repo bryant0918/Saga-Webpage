@@ -40,18 +40,22 @@ function getPublicConfig() {
     FS_BASE_URL: 'https://ident.familysearch.org',
     FS_API_BASE_URL: 'https://api.familysearch.org',
     GETFORM_ENDPOINT: 'https://getform.io/f/bdrgewgb',
-    TREE_BACKEND_BASE_URL: 'https://family-trees.replit.app'
+    TREE_BACKEND_BASE_URL: 'https://family-trees.replit.app',
+    TREE_BACKEND_BASE_URL_DEV: 'http://localhost:5000'
   };
+  const fsEnvironment = (process.env.FS_ENVIRONMENT || defaults.FS_ENVIRONMENT).toLowerCase();
   const baseUrl = process.env.FS_BASE_URL || defaults.FS_BASE_URL;
+  const treeBackendBaseUrl =
+    process.env.TREE_BACKEND_BASE_URL ||
+    (fsEnvironment === 'dev' ? defaults.TREE_BACKEND_BASE_URL_DEV : defaults.TREE_BACKEND_BASE_URL);
   return {
     FS_APP_KEY: process.env.FS_APP_KEY || defaults.FS_APP_KEY,
-    FS_ENVIRONMENT: process.env.FS_ENVIRONMENT || defaults.FS_ENVIRONMENT,
+    FS_ENVIRONMENT: fsEnvironment,
     FS_BASE_URL: baseUrl,
     FS_TOKEN_URL: process.env.FS_TOKEN_URL || `${baseUrl}/cis-web/oauth2/v3/token`,
     FS_API_BASE_URL: process.env.FS_API_BASE_URL || defaults.FS_API_BASE_URL,
     GETFORM_ENDPOINT: process.env.GETFORM_ENDPOINT || defaults.GETFORM_ENDPOINT,
-    TREE_BACKEND_BASE_URL:
-      process.env.TREE_BACKEND_BASE_URL || defaults.TREE_BACKEND_BASE_URL
+    TREE_BACKEND_BASE_URL: treeBackendBaseUrl
   };
 }
 
