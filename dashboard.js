@@ -27,8 +27,39 @@ var dashboardState = {
     editingField: null,
     pendingImageEdit: null,
     loadedAncestorGenerations: 4,
-    loadedDescendantGenerations: 3
+    loadedDescendantGenerations: 3,
+    personNames: {}
 };
+
+function getPersonLabel(personId) {
+    if (!personId) return "-";
+    var name = dashboardState.personNames[personId];
+    if (name) return name + " (" + personId + ")";
+    return personId;
+}
+
+function learnPersonName(personId, name) {
+    if (personId && name && name !== "Unknown") {
+        dashboardState.personNames[personId] = name;
+    }
+}
+
+function makePersonSlug(name, personId) {
+    if (!name || !personId) return personId || "";
+    var parts = name.trim().split(/\s+/);
+    var last = (parts[parts.length - 1] || "").toLowerCase().replace(/[^a-z]/g, "");
+    var first = (parts[0] || "").toLowerCase().replace(/[^a-z]/g, "");
+    if (!last && !first) return personId;
+    return last + "_" + first + "_" + personId;
+}
+
+function extractPersonIdFromSlug(slug) {
+    if (!slug) return "";
+    // Slug format: lastname_firstname_XXXX-XXXX or just XXXX-XXXX
+    var match = slug.match(/([A-Z0-9]{4}-[A-Z0-9]{2,4})$/);
+    if (match) return match[1];
+    return slug;
+}
 
 function getCookie(name) {
     var nameEQ = name + "=";
@@ -75,7 +106,7 @@ function setContextMeta(text) {
 
 function updateSelectedRootDisplay() {
     var rootEl = document.getElementById("selectedRootId");
-    if (rootEl) rootEl.textContent = dashboardState.selectedContextId || "-";
+    if (rootEl) rootEl.textContent = getPersonLabel(dashboardState.selectedContextId);
 }
 
 function getLookupPayload(contextId) {
@@ -181,7 +212,7 @@ function ensureContextOption(contextId) {
     if (!existing) {
         var option = document.createElement("option");
         option.value = contextId;
-        option.textContent = contextId;
+        option.textContent = getPersonLabel(contextId);
         select.appendChild(option);
     }
 }
@@ -232,7 +263,7 @@ function renderContexts(contexts, preferredContextId) {
     contexts.forEach(function(contextId) {
         var option = document.createElement("option");
         option.value = contextId;
-        option.textContent = contextId;
+        option.textContent = getPersonLabel(contextId);
         select.appendChild(option);
     });
 
@@ -284,7 +315,7 @@ async function loadChartBuilds() {
         builds.forEach(function(build) {
             html += '<li class="mb-2" style="border-bottom: 1px solid var(--light-black); padding-bottom: 8px;">';
             html += '<div style="color: var(--text-gray); font-weight: 500;">' + escapeAttr(build.filename) + '</div>';
-            html += '<div style="color: var(--text-dark-gray); font-size: 0.8rem;">Context: ' + escapeAttr(build.context_id) + '</div>';
+            html += '<div style="color: var(--text-dark-gray); font-size: 0.8rem;">Context: ' + escapeAttr(getPersonLabel(build.context_id)) + '</div>';
             html += '</li>';
         });
         html += '</ul>';
@@ -300,13 +331,16 @@ async function syncContext(rootPersonId, ancestorGenerations, descendantGenerati
         access_token: dashboardState.accessToken,
         user_scope_id: dashboardState.userScopeId,
         root_person_id: rootPersonId,
-        context_id: rootPersonId,
         title: dashboardState.lookupTitle,
         ancestor_generations: ancestorGenerations || dashboardState.loadedAncestorGenerations,
         descendant_generations: descendantGenerations || dashboardState.loadedDescendantGenerations,
         include_spouse: true
     };
-    return postJson("/people/tree/sync", payload, false);
+    var result = await postJson("/people/tree/sync", payload, false);
+    if (result && result.context_id) {
+        dashboardState.selectedContextId = result.context_id;
+    }
+    return result;
 }
 
 function clearTreeData() {
@@ -351,7 +385,7 @@ async function loadTreeData() {
 
     clearTreeData();
     container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-warning mb-3" role="status"><span class="visually-hidden">Loading...</span></div><p style="color: var(--text-gray);">Loading cached tree data...</p></div>';
-    setDashboardMessage("Loading cached data for " + contextId + "...", false);
+    setDashboardMessage("Loading cached data for " + getPersonLabel(contextId) + "...", false);
 
     try {
         var results = await Promise.allSettled([
@@ -377,6 +411,16 @@ async function loadTreeData() {
             if (metadata.title) dashboardState.lookupTitle = metadata.title;
         }
 
+        ["kids", "husb", "wife", "sibs", "desc"].forEach(function(section) {
+            var data = dashboardState.treeData[section];
+            if (data && typeof data === "object") {
+                Object.keys(data).forEach(function(pid) {
+                    var p = data[pid];
+                    if (p && p.name) learnPersonName(pid, p.name);
+                });
+            }
+        });
+
         renderDataList();
         renderMetaSummary();
 
@@ -384,7 +428,7 @@ async function loadTreeData() {
         if (failures.length) {
             setDashboardMessage("Loaded with partial data. Some sections were unavailable.", false);
         } else {
-            setDashboardMessage("Loaded cached data for " + contextId + ".", false);
+            setDashboardMessage("Loaded cached data for " + getPersonLabel(contextId) + ".", false);
         }
     } catch (error) {
         console.error("Error loading tree data:", error);
@@ -399,7 +443,7 @@ async function initializeCache() {
     try {
         setDashboardMessage("Initializing your tree cache (this can take a minute)...", false);
         await syncContext(dashboardState.currentPerson.id, 4, 3);
-        await refreshContexts(dashboardState.currentPerson.id);
+        await refreshContexts(dashboardState.selectedContextId);
         await loadTreeData();
         await loadChartBuilds();
         setDashboardMessage("Tree cache initialized.", false);
@@ -411,10 +455,11 @@ async function initializeCache() {
 
 async function fetchSelectedContextData() {
     if (!dashboardState.selectedContextId) return;
+    var rootPersonId = extractPersonIdFromSlug(dashboardState.selectedContextId);
     try {
-        setDashboardMessage("Fetching fresh FamilySearch data for " + dashboardState.selectedContextId + "...", false);
+        setDashboardMessage("Fetching fresh FamilySearch data for " + getPersonLabel(rootPersonId) + "...", false);
         await syncContext(
-            dashboardState.selectedContextId,
+            rootPersonId,
             dashboardState.loadedAncestorGenerations,
             dashboardState.loadedDescendantGenerations
         );
@@ -430,6 +475,7 @@ async function fetchSelectedContextData() {
 
 async function fetchNextAncestorGeneration() {
     if (!dashboardState.selectedContextId) return;
+    var rootPersonId = extractPersonIdFromSlug(dashboardState.selectedContextId);
     var nextGen = Math.min(5, (dashboardState.loadedAncestorGenerations || 4) + 1);
 
     if (nextGen === dashboardState.loadedAncestorGenerations) {
@@ -440,7 +486,7 @@ async function fetchNextAncestorGeneration() {
     try {
         setDashboardMessage("Fetching ancestor generation " + nextGen + "...", false);
         await syncContext(
-            dashboardState.selectedContextId,
+            rootPersonId,
             nextGen,
             dashboardState.loadedDescendantGenerations
         );
@@ -616,11 +662,16 @@ function handleImageFileSelected(input) {
     var file = input.files[0];
     var info = dashboardState.pendingImageEdit;
     dashboardState.pendingImageEdit = null;
-    if (info.coupleUpload) {
-        uploadCoupleImage(info.personId, info.spouseId, file);
-    } else {
-        uploadNewImage(info.section, info.personId, file);
-    }
+
+    showCropModal(file).then(function(croppedBlob) {
+        if (!croppedBlob) return;
+        var croppedFile = new File([croppedBlob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
+        if (info.coupleUpload) {
+            uploadCoupleImage(info.personId, info.spouseId, croppedFile);
+        } else {
+            uploadNewImage(info.section, info.personId, croppedFile);
+        }
+    });
 }
 
 function triggerCoupleImageUpload(personId, spouseId) {
@@ -1234,7 +1285,14 @@ async function bootstrapDashboard() {
     }
 
     dashboardState.currentPerson = person;
-    dashboardState.userScopeId = person.id;
+    dashboardState.userScopeId = makePersonSlug(person.name, person.id);
+    learnPersonName(person.id, person.name);
+
+    var ADMIN_IDS = ["KWN5-J7M", "KWXJ-J3Z"];
+    var adminLink = document.getElementById("adminLink");
+    if (adminLink && ADMIN_IDS.indexOf(person.id) !== -1) {
+        adminLink.style.display = "";
+    }
 
     var lastName = person.name.split(" ");
     dashboardState.lookupTitle = (lastName[lastName.length - 1] || "User") + " Family";

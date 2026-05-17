@@ -83,8 +83,52 @@ app.use('/api/payment-status', require('./api/payment-status'));
 // Webhook must be mounted with raw body parser - handled in the route file
 app.use('/api/stripe-webhook', require('./api/stripe-webhook'));
 
+// Admin route guard - verify FamilySearch identity before serving admin page
+const ADMIN_PERSON_IDS = ['KWN5-J7M', 'KWXJ-J3Z'];
+
+app.get(['/admin', '/admin.html'], async (req, res, next) => {
+  const cookies = (req.headers.cookie || '').split(';').reduce((acc, c) => {
+    const [k, ...v] = c.trim().split('=');
+    if (k) acc[k] = v.join('=');
+    return acc;
+  }, {});
+
+  const token = cookies['fs_access_token'];
+  if (!token) {
+    return res.status(403).send('Access denied');
+  }
+
+  try {
+    const config = getPublicConfig();
+    const apiBase = config.FS_API_BASE_URL + '/platform/tree';
+    const resp = await fetch(`${apiBase}/current-person`, {
+      headers: {
+        'Accept': 'application/x-gedcomx-v1+json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!resp.ok) {
+      return res.status(403).send('Access denied');
+    }
+    const data = await resp.json();
+    const personId = data.persons && data.persons[0] && data.persons[0].id;
+    if (!ADMIN_PERSON_IDS.includes(personId)) {
+      return res.status(403).send('Access denied');
+    }
+    res.sendFile(path.join(__dirname, 'admin.html'));
+  } catch (err) {
+    return res.status(403).send('Access denied');
+  }
+});
+
 // Serve static files (HTML, CSS, JS, images)
-// This serves all files in the root directory as static files
+// Block direct static access to admin.html (handled by guarded route above)
+app.use((req, res, next) => {
+  if (req.path === '/admin.html') {
+    return res.redirect('/admin');
+  }
+  next();
+});
 app.use(express.static(__dirname, {
   extensions: ['html'], // Allows /page to serve page.html
   index: 'index.html'
