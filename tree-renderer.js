@@ -168,7 +168,16 @@ function buildPersonDetailHTML(person, personId, section) {
     html += "</div></div>";
 
     if (imageName) {
-        setTimeout(function() { cfg.loadPersonImage(imgId, imageName); }, 0);
+        setTimeout(function() {
+            cfg.loadPersonImage(imgId, imageName);
+            var imgEl = document.getElementById(imgId);
+            var placeholder = document.getElementById(imgId + "_placeholder");
+            if (imgEl) {
+                imgEl.addEventListener("load", function() {
+                    if (placeholder) placeholder.style.display = "none";
+                });
+            }
+        }, 0);
     }
 
     html += '<div class="row">';
@@ -243,8 +252,12 @@ function buildPersonListItem(person, personId, section, sectionLabel) {
     html += '<div class="d-flex align-items-center">';
     html += '<div style="width: 34px; height: 34px; border-radius: 50%; background-color: var(--light-black); display: flex; align-items: center; justify-content: center; margin-right: 10px;"><i class="fas fa-user" style="color: var(--gold-primary); font-size: 0.8rem;"></i></div>';
     html += '<div><div style="color: var(--text-gray); font-weight: 500;">' + escapeAttr(name) + '</div><small style="color: var(--text-dark-gray);">' + escapeAttr(sectionLabel) + "</small></div></div>";
+    html += '<div class="d-flex align-items-center gap-2">';
+    if (cfg.selectAsStartingPerson) {
+        html += '<button class="btn btn-outline-warning btn-sm" onclick="event.stopPropagation();window.TreeRendererConfig.selectAsStartingPerson(\'' + personId + '\')" title="View this person\'s tree"><i class="fas fa-crosshairs"></i></button>';
+    }
     html += '<i class="fas fa-chevron-' + (isExpanded ? "up" : "down") + '" style="color: var(--text-dark-gray);"></i>';
-    html += "</div>";
+    html += "</div></div>";
     if (isExpanded) html += '<div class="mt-1 ms-3">' + buildPersonDetailHTML(person, personId, section) + "</div>";
     html += "</div>";
     return html;

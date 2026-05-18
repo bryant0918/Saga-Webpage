@@ -79,6 +79,7 @@ window.TreeRendererConfig = {
         }
         return dashboardState.personNames[pid] || "";
     },
+    selectAsStartingPerson: function(personId) { selectAsStartingPerson(personId); },
     addPerson: function(relationship, section, relativeId) {
         window.TreeRenderer.showAddPersonModal(relationship, section, relativeId);
     },
