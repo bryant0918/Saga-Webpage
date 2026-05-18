@@ -752,7 +752,8 @@ function handleImageFileSelected(input) {
     var info = dashboardState.pendingImageEdit;
     dashboardState.pendingImageEdit = null;
 
-    showCropModal(file).then(function(croppedBlob) {
+    var cropOpts = info.coupleUpload ? { aspectRatio: 4 / 3 } : {};
+    showCropModal(file, cropOpts).then(function(croppedBlob) {
         if (!croppedBlob) return;
         var croppedFile = new File([croppedBlob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
         if (info.coupleUpload) {

@@ -47,11 +47,17 @@ function _ensureCropModal() {
     document.getElementById("cropReset").addEventListener("click", function() { if (_cropperInstance) _cropperInstance.reset(); });
 }
 
-function showCropModal(file) {
+function showCropModal(file, options) {
     _ensureCropModal();
+    var opts = options || {};
+    var aspectRatio = opts.aspectRatio || (6 / 7);
+    var outputWidth = opts.outputWidth || (aspectRatio >= 1 ? 800 : 600);
+    var outputHeight = opts.outputHeight || Math.round(outputWidth / aspectRatio);
 
     return new Promise(function(resolve) {
         _cropResolve = resolve;
+        window._cropOutputWidth = outputWidth;
+        window._cropOutputHeight = outputHeight;
 
         var reader = new FileReader();
         reader.onload = function(e) {
@@ -69,7 +75,7 @@ function showCropModal(file) {
                 }
 
                 _cropperInstance = new Cropper(imgEl, {
-                    aspectRatio: 6 / 7,
+                    aspectRatio: aspectRatio,
                     viewMode: 1,
                     dragMode: "move",
                     autoCropArea: 1,
@@ -91,8 +97,8 @@ function _confirmCrop() {
     if (!_cropperInstance || !_cropResolve) return;
 
     var canvas = _cropperInstance.getCroppedCanvas({
-        width: 600,
-        height: 700,
+        width: window._cropOutputWidth || 600,
+        height: window._cropOutputHeight || 700,
         imageSmoothingEnabled: true,
         imageSmoothingQuality: "high",
     });
