@@ -533,6 +533,35 @@ function renderDataList() {
 
 // ==================== Build Chart ====================
 
+async function downloadTreeData() {
+    if (!adminState.selectedUserFolder || !adminState.selectedContext) {
+        alert("Select a tree context first.");
+        return;
+    }
+    try {
+        var response = await fetch(TREE_BACKEND_BASE_URL + "/people/tree/download-folder", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                user_scope_id: adminState.selectedUserFolder,
+                context_id: adminState.selectedContext
+            })
+        });
+        if (!response.ok) throw new Error("Download failed");
+        var blob = await response.blob();
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = adminState.selectedUserFolder + "_" + adminState.selectedContext + ".zip";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } catch (error) {
+        alert("Failed to download: " + error.message);
+    }
+}
+
 function openBuildChartModal() {
     if (!adminState.selectedContext) { alert("Select a tree context first."); return; }
     document.getElementById("buildChartContextLabel").textContent = formatFolderName(adminState.selectedContext);
