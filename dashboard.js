@@ -96,6 +96,7 @@ window.TreeRendererConfig = {
         }).catch(function() { callback(null); });
     },
     submitAddPerson: function() { submitAddPerson(); },
+    refreshPerson: function(section, personId) { refreshPerson(section, personId); },
 };
 
 function getCookie(name) {
@@ -508,6 +509,45 @@ async function fetchSelectedContextData() {
     } catch (error) {
         console.error("Fetch selected context failed:", error);
         setDashboardMessage("Failed to fetch data for this context.", true);
+    }
+}
+
+async function refreshPerson(section, personId) {
+    if (!confirm("Re-fetch this person's data from FamilySearch? This may overwrite any unsynced local edits.")) return;
+
+    // Show spinner on the refresh button
+    var btns = document.querySelectorAll('[title="Refresh from FamilySearch"]');
+    var targetBtn = null;
+    btns.forEach(function(btn) {
+        if (btn.getAttribute("onclick") && btn.getAttribute("onclick").indexOf(personId) !== -1) {
+            targetBtn = btn;
+        }
+    });
+    if (targetBtn) {
+        targetBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 0.75rem;"></i>';
+        targetBtn.disabled = true;
+    }
+
+    var payload = getLookupPayload();
+    payload.json_type = SECTION_TO_JSON_TYPE[section] || section;
+    payload.individual_id = personId;
+    payload.access_token = dashboardState.accessToken;
+
+    try {
+        var response = await postJson("/people/tree/refresh-person", payload, false);
+        if (response && response.updated && dashboardState.treeData[section] && dashboardState.treeData[section][personId]) {
+            dashboardState.treeData[section][personId] = response.updated;
+            if (response.updated.name) learnPersonName(personId, formatName(response.updated.name));
+        }
+        renderDataList();
+        setDashboardMessage("Refreshed data for " + getPersonLabel(personId) + ".", false);
+    } catch (error) {
+        console.error("Error refreshing person:", error);
+        setDashboardMessage("Failed to refresh " + getPersonLabel(personId) + ": " + error.message, true);
+        if (targetBtn) {
+            targetBtn.innerHTML = '<i class="fas fa-arrows-rotate" style="font-size: 0.75rem;"></i>';
+            targetBtn.disabled = false;
+        }
     }
 }
 
@@ -929,6 +969,20 @@ function wireControls() {
     if (refreshContextsBtn) {
         refreshContextsBtn.addEventListener("click", function() {
             refreshContexts(dashboardState.selectedContextId);
+        });
+    }
+
+    var refetchAllBtn = document.getElementById("refetchAllBtn");
+    if (refetchAllBtn) {
+        refetchAllBtn.addEventListener("click", function() {
+            if (!confirm("This will re-fetch all data from FamilySearch and may overwrite any unsynced local edits. Continue?")) return;
+            refetchAllBtn.disabled = true;
+            var icon = refetchAllBtn.querySelector("i");
+            if (icon) { icon.className = "fas fa-spinner fa-spin me-1"; }
+            fetchSelectedContextData().finally(function() {
+                refetchAllBtn.disabled = false;
+                if (icon) { icon.className = "fas fa-cloud-arrow-down me-1"; }
+            });
         });
     }
 }

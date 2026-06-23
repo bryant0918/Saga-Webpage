@@ -256,6 +256,9 @@ function buildPersonListItem(person, personId, section, sectionLabel) {
     if (cfg.selectAsStartingPerson) {
         html += '<button class="btn btn-outline-warning btn-sm" onclick="event.stopPropagation();window.TreeRendererConfig.selectAsStartingPerson(\'' + personId + '\')" title="View this person\'s tree"><i class="fas fa-crosshairs"></i></button>';
     }
+    if (cfg.refreshPerson) {
+        html += '<button class="btn btn-sm p-1" onclick="event.stopPropagation();window.TreeRendererConfig.refreshPerson(\'' + escapeAttr(section) + '\',\'' + escapeAttr(personId) + '\')" title="Refresh from FamilySearch" style="color: var(--text-dark-gray); line-height: 1;"><i class="fas fa-arrows-rotate" style="font-size: 0.75rem;"></i></button>';
+    }
     html += '<i class="fas fa-chevron-' + (isExpanded ? "up" : "down") + '" style="color: var(--text-dark-gray);"></i>';
     html += "</div></div>";
     if (isExpanded) html += '<div class="mt-1 ms-3">' + buildPersonDetailHTML(person, personId, section) + "</div>";
