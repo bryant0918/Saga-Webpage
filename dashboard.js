@@ -535,7 +535,8 @@ async function refreshPerson(section, personId) {
 
     try {
         var response = await postJson("/people/tree/refresh-person", payload, false);
-        if (response && response.updated && dashboardState.treeData[section] && dashboardState.treeData[section][personId]) {
+        if (response && response.updated) {
+            if (!dashboardState.treeData[section]) dashboardState.treeData[section] = {};
             dashboardState.treeData[section][personId] = response.updated;
             if (response.updated.name) learnPersonName(personId, formatName(response.updated.name));
         }

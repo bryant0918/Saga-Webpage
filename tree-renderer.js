@@ -254,7 +254,7 @@ function buildPersonListItem(person, personId, section, sectionLabel) {
     html += '<div><div style="color: var(--text-gray); font-weight: 500;">' + escapeAttr(name) + '</div><small style="color: var(--text-dark-gray);">' + escapeAttr(sectionLabel) + "</small></div></div>";
     html += '<div class="d-flex align-items-center gap-2">';
     if (cfg.selectAsStartingPerson) {
-        html += '<button class="btn btn-outline-warning btn-sm" onclick="event.stopPropagation();window.TreeRendererConfig.selectAsStartingPerson(\'' + personId + '\')" title="View this person\'s tree"><i class="fas fa-crosshairs"></i></button>';
+        html += '<button class="btn btn-outline-warning btn-sm" onclick="event.stopPropagation();window.TreeRendererConfig.selectAsStartingPerson(\'' + escapeAttr(personId) + '\')" title="View this person\'s tree"><i class="fas fa-crosshairs"></i></button>';
     }
     if (cfg.refreshPerson) {
         html += '<button class="btn btn-sm p-1" onclick="event.stopPropagation();window.TreeRendererConfig.refreshPerson(\'' + escapeAttr(section) + '\',\'' + escapeAttr(personId) + '\')" title="Refresh from FamilySearch" style="color: var(--text-dark-gray); line-height: 1;"><i class="fas fa-arrows-rotate" style="font-size: 0.75rem;"></i></button>';
