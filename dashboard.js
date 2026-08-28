@@ -183,6 +183,10 @@ function renderCharts() {
 }
 
 async function loadOrders() {
+    // Callers include the poll timer and post-checkout handler, which can fire
+    // after a session failure has left state.person unset.
+    if (!state.person) return;
+
     try {
         var result = await window.FsAuth.postJson('/orders/list', {
             user_scope_id: state.person.scopeId
@@ -1209,6 +1213,10 @@ async function bootstrapDashboard() {
 
     var person = await window.FsAuth.fetchCurrentPerson(accessToken);
     if (!person) {
+        // Clear the dead token before bouncing to /login. The login page only
+        // checks that a token cookie EXISTS, so leaving an expired one in place
+        // sends the browser straight back here and loops forever.
+        window.FsAuth.deleteCookie('fs_access_token');
         setGlobalMessage('Your FamilySearch session has expired. Please sign in again.', 'error');
         setTimeout(function () {
             window.location.href = '/login';
