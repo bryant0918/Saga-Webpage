@@ -222,6 +222,10 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
             stripeSessionId: session.id,
             requestId,
             amountPaidCents: amountPaid,
+            // productKey comes from the Stripe line items above, so the
+            // backend can confirm the customer bought the product they are
+            // unlocking rather than a cheaper one.
+            productKey,
           });
 
           if (!result.ok) {

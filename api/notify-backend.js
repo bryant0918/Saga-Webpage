@@ -26,7 +26,13 @@ function getBackendBaseUrl() {
  * @param {number} [params.amountPaidCents] Amount actually captured, in cents.
  * @returns {Promise<{ok: boolean, error?: string, status?: number}>}
  */
-async function markOrderPaid({ orderId, stripeSessionId, requestId, amountPaidCents }) {
+async function markOrderPaid({
+  orderId,
+  stripeSessionId,
+  requestId,
+  amountPaidCents,
+  productKey,
+}) {
   if (!orderId) {
     return { ok: false, error: 'No orderId supplied' };
   }
@@ -58,6 +64,9 @@ async function markOrderPaid({ orderId, stripeSessionId, requestId, amountPaidCe
         stripe_session_id: stripeSessionId || null,
         request_id: requestId || null,
         amount_paid_cents: typeof amountPaidCents === 'number' ? amountPaidCents : null,
+        // Recovered from the Stripe line items, not from client input. The
+        // backend refuses to unlock when this does not match the order.
+        product_key: productKey || null,
       }),
       signal: controller.signal,
     });
@@ -79,4 +88,54 @@ async function markOrderPaid({ orderId, stripeSessionId, requestId, amountPaidCe
   }
 }
 
-module.exports = { markOrderPaid, getBackendBaseUrl };
+/**
+ * Fetch the authoritative product and price for an order from the backend.
+ *
+ * Checkout must be priced from the stored order, never from client-supplied
+ * tree type and generation count, or a customer can check out the cheapest
+ * product and unlock their most expensive chart.
+ *
+ * @param {string} orderId
+ * @returns {Promise<{ok: boolean, order?: object, error?: string, status?: number}>}
+ */
+async function fetchOrderForCheckout(orderId) {
+  if (!orderId) {
+    return { ok: false, error: 'No orderId supplied' };
+  }
+
+  const secret = process.env.INTERNAL_API_SECRET;
+  if (!secret) {
+    console.error('INTERNAL_API_SECRET is not set; cannot price a checkout safely.');
+    return { ok: false, error: 'INTERNAL_API_SECRET is not configured' };
+  }
+
+  const url = `${getBackendBaseUrl()}/orders/checkout-info`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Internal-Secret': secret,
+      },
+      body: JSON.stringify({ order_id: orderId }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      return { ok: false, error: text || `HTTP ${response.status}`, status: response.status };
+    }
+
+    return { ok: true, order: await response.json() };
+  } catch (error) {
+    const reason = error.name === 'AbortError' ? 'timed out' : error.message;
+    return { ok: false, error: reason };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+module.exports = { markOrderPaid, fetchOrderForCheckout, getBackendBaseUrl };
