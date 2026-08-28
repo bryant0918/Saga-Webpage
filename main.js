@@ -35,21 +35,28 @@ function deleteCookie(name) {
     document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 }
 
-// Source selection function
+// Landing-page call to action.
+//
+// Both data sources now live inside the signed-in dashboard's new-chart wizard,
+// so every entry point lands in the same place: signed in, then the dashboard.
+// The `source` argument is kept so the landing page's two tiles can pre-select
+// the matching option once the customer arrives.
 function selectSource(source) {
-    if (source === 'familysearch') {
-        // Check if user already has a valid access token
-        const accessToken = getCookie('fs_access_token');
-        if (accessToken) {
-            // User is already authenticated, go directly to config
-            window.location.href = 'familysearch-config.html';
-        } else {
-            // User needs to authenticate first
-            window.location.href = 'familysearch.html';
+    const accessToken = getCookie('fs_access_token');
+    if (!accessToken) {
+        // Remember where they were headed so the dashboard opens the wizard.
+        try {
+            sessionStorage.setItem('login_origin', 'landing');
+            if (source) {
+                sessionStorage.setItem('pending_chart_source', source);
+            }
+        } catch (error) {
+            // Private browsing can refuse storage; sign-in still works.
         }
-    } else if (source === 'gedcom') {
-        window.location.href = 'gedcom.html';
+        window.location.href = '/login';
+        return;
     }
+    window.location.href = '/dashboard';
 }
 
 // Make selectSource available globally
@@ -345,16 +352,16 @@ async function exchangeCodeForTokenAndRedirect(code) {
             // Store token in cookie (expires in 24 hours)
             setCookie('fs_access_token', accessToken, 24);
             
-            // Clean up URL and redirect based on origin
+            // Clean up URL and send everyone to the dashboard. There is no
+            // longer a signed-out ordering path to fall back to.
             window.history.replaceState({}, document.title, window.location.pathname);
-            
-            var fromLogin = sessionStorage.getItem('login_origin');
-            if (fromLogin) {
+
+            try {
                 sessionStorage.removeItem('login_origin');
-                window.location.href = '/dashboard';
-            } else {
-                window.location.href = 'familysearch-config.html';
+            } catch (error) {
+                // Storage may be unavailable; the redirect is what matters.
             }
+            window.location.href = '/dashboard';
         } else {
             throw new Error('No access token received');
         }

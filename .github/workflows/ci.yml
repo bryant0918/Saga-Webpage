@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # `npm install`, not `npm ci`: package-lock.json is gitignored in this
+      # repo, and `npm ci` requires a committed lockfile. Committing the
+      # lockfile would make CI reproducible and let this use `npm ci` with
+      # dependency caching.
+      - name: Install dependencies
+        run: npm install
+
+      - name: Test
+        run: npm test

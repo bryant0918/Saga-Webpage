@@ -586,6 +586,9 @@ async function submitBuildChart() {
     payload.theme = theme;
     payload.max_generations = parseInt(maxGen, 10);
     payload.title = adminState.selectedContext;
+    // /build_chart is authenticated now. The backend lets an allowlisted admin
+    // act on any user's scope, which is what building on a customer's behalf is.
+    payload.access_token = adminState.accessToken;
 
     try {
         var response = await fetch(TREE_BACKEND_BASE_URL + "/build_chart", {
@@ -594,11 +597,14 @@ async function submitBuildChart() {
             body: JSON.stringify(payload)
         });
         if (!response.ok) throw new Error(await response.text());
-        statusEl.textContent = "Chart build started! PDF will appear in builds when ready.";
+        statusEl.textContent = "Chart build started. It will appear in Orders when ready.";
         statusEl.style.color = "var(--gold-primary)";
-        setTimeout(function() { loadChartBuilds(); }, 10000);
-        setTimeout(function() { loadChartBuilds(); }, 30000);
-        setTimeout(function() { loadChartBuilds(); }, 60000);
+        [10000, 30000, 60000].forEach(function(delay) {
+            setTimeout(function() {
+                loadChartBuilds();
+                if (window.AdminOrders) window.AdminOrders.load();
+            }, delay);
+        });
     } catch (error) {
         statusEl.textContent = "Build failed: " + error.message;
         statusEl.style.color = "#ffb4b4";

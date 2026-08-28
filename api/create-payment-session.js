@@ -76,6 +76,7 @@ router.post('/', async (req, res) => {
     // Parse request body
     const {
       requestId,
+      orderId,
       treeType,
       generations,
       familyName,
@@ -91,6 +92,13 @@ router.post('/', async (req, res) => {
     // Validate required fields
     if (!requestId) {
       return res.status(400).json({ error: 'requestId is required' });
+    }
+
+    // The order ID is what the webhook uses to unlock the chart's print file.
+    // Without it a customer can pay and never receive anything, so refuse the
+    // checkout rather than take money we cannot fulfil.
+    if (!orderId) {
+      return res.status(400).json({ error: 'orderId is required' });
     }
 
     if (!treeType || !generations) {
@@ -134,6 +142,7 @@ router.post('/', async (req, res) => {
       // Store all relevant data in metadata for webhook processing
       metadata: {
         request_id: requestId,
+        order_id: orderId,
         user_id: userId || 'unknown',
         contact_email: contactEmail,
         contact_name: contactName,
@@ -169,3 +178,10 @@ router.post('/', async (req, res) => {
 });
 
 module.exports = router;
+// Exported for tests. These encode two things that are easy to get wrong: the
+// price table (which must agree with three other files) and the open-redirect
+// guard on the post-checkout return path.
+module.exports.PRICE_AMOUNT_MAP = PRICE_AMOUNT_MAP;
+module.exports.getProductKey = getProductKey;
+module.exports.getSafeReturnPath = getSafeReturnPath;
+module.exports.normalizeThemeSlug = normalizeThemeSlug;
