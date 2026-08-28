@@ -78,34 +78,63 @@
     return match ? match[1] : String(slug);
   }
 
-  /** Resolve the signed-in FamilySearch user, or null when not signed in. */
-  async function fetchCurrentPerson(accessToken) {
+  /**
+   * Resolve the signed-in FamilySearch user.
+   *
+   * Returns `{person}` on success, or `{person: null, expired}` on failure.
+   * The caller needs to tell a rejected token from a rate limit or a network
+   * blip: only the former should delete the cookie and sign the user out.
+   * Treating every failure as "expired" throws away a working session over a
+   * transient 429.
+   */
+  async function resolveCurrentPerson(accessToken) {
+    var response;
     try {
-      var response = await fetch(FS_API_BASE_URL + '/platform/tree/current-person', {
+      response = await fetch(FS_API_BASE_URL + '/platform/tree/current-person', {
         method: 'GET',
         headers: {
           Accept: 'application/x-gedcomx-v1+json',
           Authorization: 'Bearer ' + accessToken
         }
       });
-      if (!response.ok) {
-        return null;
-      }
-      var data = await response.json();
-      var person = data.persons && data.persons[0];
-      if (!person) {
-        return null;
-      }
-      var name = (person.display && person.display.name) || 'Unknown';
-      return {
-        id: person.id || '',
-        name: name,
-        scopeId: makePersonSlug(name, person.id || '')
-      };
     } catch (error) {
-      console.error('Could not resolve current FamilySearch person:', error);
-      return null;
+      console.error('Network error resolving FamilySearch person:', error);
+      return { person: null, expired: false, reason: 'network' };
     }
+
+    if (response.status === 401 || response.status === 403) {
+      return { person: null, expired: true, reason: 'rejected' };
+    }
+    if (!response.ok) {
+      console.warn('FamilySearch returned ' + response.status + ' resolving the current person');
+      return { person: null, expired: false, reason: 'unavailable' };
+    }
+
+    var data;
+    try {
+      data = await response.json();
+    } catch (error) {
+      return { person: null, expired: false, reason: 'unreadable' };
+    }
+
+    var person = data.persons && data.persons[0];
+    if (!person || !person.id) {
+      // A 200 with no person is a token that resolves to nobody.
+      return { person: null, expired: true, reason: 'no-person' };
+    }
+
+    var name = (person.display && person.display.name) || 'Unknown';
+    return {
+      person: { id: person.id, name: name, scopeId: makePersonSlug(name, person.id) },
+      expired: false,
+      reason: 'ok'
+    };
+  }
+
+  /** Convenience wrapper returning just the person, or null. */
+  async function fetchCurrentPerson(accessToken) {
+    var result = await resolveCurrentPerson(accessToken);
+    return result.person;
   }
 
   /**
@@ -160,13 +189,19 @@
     });
 
     if (!response.ok) {
+      // Mirror postJson: the backend can return a plain-text error (or an
+      // HTML error page from a proxy), and "Download failed" hides it.
       var parsed = null;
+      var text = '';
       try {
-        parsed = await response.json();
+        text = await response.text();
+        parsed = JSON.parse(text);
       } catch (error) {
         parsed = null;
       }
-      var failure = new Error((parsed && parsed.error) || 'Download failed');
+      var failure = new Error(
+        (parsed && parsed.error) || text || 'Download failed (' + response.status + ')'
+      );
       failure.status = response.status;
       failure.body = parsed;
       throw failure;
@@ -217,6 +252,7 @@
     logout: logout,
     makePersonSlug: makePersonSlug,
     extractPersonId: extractPersonId,
+    resolveCurrentPerson: resolveCurrentPerson,
     fetchCurrentPerson: fetchCurrentPerson,
     postJson: postJson,
     postForBlob: postForBlob,

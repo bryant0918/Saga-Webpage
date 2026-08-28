@@ -101,7 +101,14 @@ const RETIRED_ROUTES = {
 };
 
 Object.entries(RETIRED_ROUTES).forEach(([from, to]) => {
-  app.get(from, (req, res) => res.redirect(301, to));
+  app.get(from, (req, res) => {
+    // Keep the query string. A Stripe session created before this deploy
+    // returns to an old path with ?payment=success&request_id=..., and the
+    // dashboard needs those params to refresh the unlocked order.
+    const queryIndex = req.originalUrl.indexOf('?');
+    const query = queryIndex === -1 ? '' : req.originalUrl.slice(queryIndex);
+    res.redirect(301, to + query);
+  });
 });
 
 // Admin route guard - verify FamilySearch identity before serving admin page.

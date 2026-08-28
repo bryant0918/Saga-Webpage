@@ -26,13 +26,26 @@ const ALLOWED_THEME_SLUGS = new Set([
   'ancestral-stone',
 ]);
 
+// The backend stores a theme by its own name; the frontend sells slugs. The
+// dashboard buys from a stored order, so it sends the backend name, and
+// accepting only slugs silently collapsed every checkout to royal-heritage.
+const BACKEND_THEME_TO_SLUG = {
+  black: 'royal-heritage',
+  rustic: 'rustic-roots',
+  green: 'vintage-botanical',
+  stone: 'ancestral-stone',
+};
+
 function normalizeThemeSlug(theme) {
   if (typeof theme !== 'string') {
     return 'royal-heritage';
   }
 
   const normalized = theme.trim().toLowerCase();
-  return ALLOWED_THEME_SLUGS.has(normalized) ? normalized : 'royal-heritage';
+  if (ALLOWED_THEME_SLUGS.has(normalized)) {
+    return normalized;
+  }
+  return BACKEND_THEME_TO_SLUG[normalized] || 'royal-heritage';
 }
 
 function getProductKey(treeType, generations) {
@@ -41,7 +54,8 @@ function getProductKey(treeType, generations) {
 }
 
 function getSafeReturnPath(returnPath) {
-  const defaultPath = '/familysearch-config.html';
+  // The dashboard is the only place a customer returns to now.
+  const defaultPath = '/dashboard';
 
   if (typeof returnPath !== 'string') {
     return defaultPath;
@@ -135,12 +149,25 @@ router.post('/', async (req, res) => {
     const productKey = order.product_key;
     const priceId = PRICE_MAP[productKey];
     const priceInDollars = PRICE_AMOUNT_MAP[productKey];
-    const normalizedTheme = normalizeThemeSlug(theme);
+    const normalizedTheme = normalizeThemeSlug(order.theme || theme);
 
     if (!priceId || !priceInDollars) {
       console.error(`Order ${orderId} has unsupported product key ${productKey}`);
       return res.status(400).json({
         error: `Unsupported product for this chart: ${productKey}`
+      });
+    }
+
+    // The backend prices the same product independently. If the two disagree,
+    // one of the four price tables has drifted and we would quote a number we
+    // do not charge. Refuse rather than pick a side.
+    if (typeof order.price_usd === 'number' && order.price_usd !== priceInDollars) {
+      console.error(
+        `Price mismatch for ${productKey}: backend says $${order.price_usd}, ` +
+          `this server says $${priceInDollars}. Refusing checkout.`
+      );
+      return res.status(500).json({
+        error: 'Pricing is misconfigured for this chart. Please contact support.'
       });
     }
 
@@ -209,3 +236,4 @@ module.exports.PRICE_AMOUNT_MAP = PRICE_AMOUNT_MAP;
 module.exports.getProductKey = getProductKey;
 module.exports.getSafeReturnPath = getSafeReturnPath;
 module.exports.normalizeThemeSlug = normalizeThemeSlug;
+module.exports.BACKEND_THEME_TO_SLUG = BACKEND_THEME_TO_SLUG;

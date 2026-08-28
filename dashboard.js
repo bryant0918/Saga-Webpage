@@ -24,6 +24,8 @@ var state = {
     orders: [],
     activeOrderId: null,
     pollTimer: null,
+    isPolling: false,
+    pollStartedAt: null,
     wizard: null,
     // Editor state, consumed by tree-renderer.js
     contextId: null,
@@ -205,41 +207,66 @@ async function loadOrders() {
     }
 }
 
-/** Poll while any chart is still building, then stop. */
-function maybeStartPolling() {
-    var building = state.orders.some(function (order) {
+function hasBuildingChart() {
+    return state.orders.some(function (order) {
         return order.status === 'building';
     });
+}
 
-    if (!building) {
-        if (state.pollTimer) {
-            clearTimeout(state.pollTimer);
-            state.pollTimer = null;
-        }
+function stopPolling() {
+    if (state.pollTimer) {
+        clearTimeout(state.pollTimer);
+    }
+    state.pollTimer = null;
+    state.isPolling = false;
+    state.pollStartedAt = null;
+}
+
+/**
+ * Poll while any chart is still building, then stop.
+ *
+ * `isPolling` is the guard, not `pollTimer`. loadOrders() calls back into here,
+ * and the tick runs with no timer pending, so guarding on the handle alone let
+ * each cycle start a second chain while overwriting the first one's handle
+ * without clearing it. The pollers then doubled every interval.
+ *
+ * `pollStartedAt` lives on state for the same reason: a per-call variable was
+ * reset by each new chain, so the timeout never fired.
+ */
+function maybeStartPolling() {
+    if (!hasBuildingChart()) {
+        stopPolling();
         return;
     }
 
-    if (state.pollTimer) return;
+    if (state.isPolling) return;
 
-    var startedAt = Date.now();
+    state.isPolling = true;
+    state.pollStartedAt = state.pollStartedAt || Date.now();
+
     var tick = async function () {
         state.pollTimer = null;
-        if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
+
+        if (Date.now() - state.pollStartedAt > POLL_TIMEOUT_MS) {
             setGlobalMessage(
                 'A chart is taking longer than expected. Refresh in a few minutes, or email us if it stays stuck.',
                 'error'
             );
+            stopPolling();
             return;
         }
+
+        // loadOrders() -> maybeStartPolling() is a no-op while isPolling holds,
+        // so this function stays the only scheduler.
         await loadOrders();
-        if (
-            state.orders.some(function (order) {
-                return order.status === 'building';
-            })
-        ) {
+
+        if (state.isPolling && hasBuildingChart()) {
             state.pollTimer = setTimeout(tick, POLL_INTERVAL_MS);
+        } else {
+            stopPolling();
         }
     };
+
     state.pollTimer = setTimeout(tick, POLL_INTERVAL_MS);
 }
 
@@ -354,7 +381,49 @@ function defaultWizard() {
     };
 }
 
+/**
+ * Push state.wizard onto the DOM.
+ *
+ * The wizard is reused across charts, so its tiles and panels keep whatever
+ * the previous run left selected. Without this the screen can say
+ * "descendant, from GEDCOM" while state says ancestor-from-FamilySearch, and
+ * the customer receives a chart that does not match what they chose.
+ */
+function syncWizardDom() {
+    var wizard = state.wizard;
+
+    document.querySelectorAll('[data-source]').forEach(function (tile) {
+        tile.classList.toggle('selected', tile.getAttribute('data-source') === wizard.source);
+    });
+    var fsPanel = document.getElementById('familysearchSourcePanel');
+    var gedcomPanel = document.getElementById('gedcomSourcePanel');
+    if (fsPanel) fsPanel.style.display = wizard.source === 'familysearch' ? '' : 'none';
+    if (gedcomPanel) gedcomPanel.style.display = wizard.source === 'gedcom' ? '' : 'none';
+
+    document.querySelectorAll('[data-tree-type]').forEach(function (tile) {
+        tile.classList.toggle('selected', tile.getAttribute('data-tree-type') === wizard.treeType);
+    });
+
+    document.querySelectorAll('#wizardThemeSelection .theme-selector').forEach(function (tile) {
+        tile.classList.toggle('selected', tile.getAttribute('data-theme') === wizard.theme);
+    });
+
+    var manualWrapper = document.getElementById('wizardManualIdWrapper');
+    if (manualWrapper) manualWrapper.style.display = 'none';
+    var manualId = document.getElementById('wizardManualId');
+    if (manualId) manualId.value = '';
+
+    var gedcomFile = document.getElementById('wizardGedcomFile');
+    if (gedcomFile) gedcomFile.value = '';
+    var rootPointer = document.getElementById('wizardRootPointer');
+    if (rootPointer) rootPointer.value = '';
+
+    setWizardError('');
+}
+
 function startWizard() {
+    if (!state.person) return;
+
     state.wizard = defaultWizard();
 
     var lastName = (state.person.name || '').trim().split(/\s+/).pop() || '';
@@ -365,6 +434,7 @@ function startWizard() {
     var familyInput = document.getElementById('wizardFamilyName');
     if (familyInput) familyInput.value = lastName;
 
+    syncWizardDom();
     syncGenerationOptions();
     goToStep(1);
     showView('wizard');
@@ -1204,6 +1274,27 @@ async function handleUrlIntent() {
     }
 }
 
+/**
+ * Open the wizard if the customer arrived by clicking a source on the landing
+ * page. Without this they sign in and land on an empty grid, having already
+ * told us what they wanted to do.
+ */
+function openWizardFromLandingIntent() {
+    var source = null;
+    try {
+        source = sessionStorage.getItem('pending_chart_source');
+        sessionStorage.removeItem('pending_chart_source');
+    } catch (error) {
+        return;
+    }
+    if (!source) return;
+
+    startWizard();
+    var tile = document.querySelector('[data-source="' + source + '"]');
+    if (tile) tile.click();
+}
+
+
 async function bootstrapDashboard() {
     var accessToken = window.FsAuth.getAccessToken();
     if (!accessToken) {
@@ -1211,10 +1302,21 @@ async function bootstrapDashboard() {
         return;
     }
 
-    var person = await window.FsAuth.fetchCurrentPerson(accessToken);
-    if (!person) {
+    var session = await window.FsAuth.resolveCurrentPerson(accessToken);
+
+    if (!session.person && !session.expired) {
+        // FamilySearch is rate-limiting or down. The token is probably fine, so
+        // keep it and let the customer retry rather than forcing a fresh OAuth.
+        setGlobalMessage(
+            'FamilySearch is not responding right now. Refresh in a moment to try again.',
+            'error'
+        );
+        return;
+    }
+
+    if (!session.person) {
         // Clear the dead token before bouncing to /login. The login page only
-        // checks that a token cookie EXISTS, so leaving an expired one in place
+        // checks that a token cookie EXISTS, so leaving a rejected one in place
         // sends the browser straight back here and loops forever.
         window.FsAuth.deleteCookie('fs_access_token');
         setGlobalMessage('Your FamilySearch session has expired. Please sign in again.', 'error');
@@ -1223,6 +1325,8 @@ async function bootstrapDashboard() {
         }, 2500);
         return;
     }
+
+    var person = session.person;
 
     state.person = person;
     learnPersonName(person.id, person.name);
@@ -1248,6 +1352,7 @@ async function bootstrapDashboard() {
 
     await loadOrders();
     await handleUrlIntent();
+    openWizardFromLandingIntent();
 
     // The admin link is a convenience only; /admin is guarded server-side.
     try {

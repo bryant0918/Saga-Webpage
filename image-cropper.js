@@ -60,7 +60,17 @@ function showCropModal(file, options) {
         window._cropOutputHeight = outputHeight;
 
         var reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onerror = function () {
+      // Without this the promise never settles and the upload silently dies.
+      console.error('Could not read the selected image file.');
+      if (_cropResolve) {
+        var resolveRef = _cropResolve;
+        _cropResolve = null;
+        resolveRef(null);
+      }
+    };
+
+    reader.onload = function(e) {
             var imgEl = document.getElementById("cropperImage");
             imgEl.src = e.target.result;
 

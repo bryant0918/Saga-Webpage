@@ -117,13 +117,21 @@ test('generation options only offer combinations that have a price', () => {
 test('return path guard rejects absolute and protocol-relative URLs', () => {
   // Otherwise Stripe would redirect the customer to an attacker's site after
   // a successful payment.
-  assert.equal(getSafeReturnPath('https://evil.example.com/steal'), '/familysearch-config.html');
-  assert.equal(getSafeReturnPath('http://evil.example.com'), '/familysearch-config.html');
-  assert.equal(getSafeReturnPath('//evil.example.com'), '/familysearch-config.html');
+  assert.equal(getSafeReturnPath('https://evil.example.com/steal'), '/dashboard');
+  assert.equal(getSafeReturnPath('http://evil.example.com'), '/dashboard');
+  assert.equal(getSafeReturnPath('//evil.example.com'), '/dashboard');
 });
 
 test('return path guard rejects directory traversal', () => {
-  assert.equal(getSafeReturnPath('/../../etc/passwd'), '/familysearch-config.html');
+  assert.equal(getSafeReturnPath('/../../etc/passwd'), '/dashboard');
+});
+
+test('the default return path is a page that still exists', () => {
+  // It used to default to /familysearch-config.html, which this refactor
+  // deleted. A checkout falling back to it would land the customer on a 301
+  // that drops the ?payment=success params, so the unlock never refreshes.
+  assert.equal(getSafeReturnPath(undefined), '/dashboard');
+  assert.equal(getSafeReturnPath(''), '/dashboard');
 });
 
 test('return path guard keeps a plain local path and strips its query', () => {
