@@ -96,6 +96,73 @@
         .option-tile:hover { border-color: rgba(212,175,55,0.5); }
         .option-tile.selected { border-color: var(--gold-primary); background: rgba(212,175,55,0.06); }
         .person-list-item .actions .btn { --bs-btn-padding-y: .15rem; --bs-btn-padding-x: .45rem; }
+        .wizard-step { cursor: default; }
+        .wizard-step.done { cursor: pointer; }
+        .wizard-preview-shell {
+            position: sticky;
+            top: 18px;
+            padding: 14px;
+            border: 1px solid rgba(212,175,55,0.22);
+            border-radius: 8px;
+            background: var(--deep-black);
+        }
+        .wizard-preview-title {
+            color: var(--text-gray);
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .wizard-example-chart {
+            position: relative;
+            aspect-ratio: 3 / 2;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #121212;
+        }
+        .wizard-example-chart img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #121212;
+        }
+        .wizard-start-arrow {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: none;
+        }
+        .wizard-example-chart.show-arrow .wizard-start-arrow {
+            display: block;
+        }
+        .wizard-example-chart.is-ancestor .arrow-descendant,
+        .wizard-example-chart.is-ancestor .arrow-label-descendant,
+        .wizard-example-chart.is-descendant .arrow-ancestor,
+        .wizard-example-chart.is-descendant .arrow-label-ancestor {
+            display: none;
+        }
+        .starting-guidance {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            margin-top: 14px;
+            padding: 12px;
+            border-radius: 8px;
+            background: rgba(212,175,55,0.07);
+            color: var(--text-gray);
+        }
+        .starting-guidance i {
+            color: #ff5a5f;
+            margin-top: 2px;
+        }
+        @media (max-width: 991.98px) {
+            .wizard-preview-shell {
+                position: static;
+                margin-top: 18px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -158,57 +225,89 @@
             <p style="color: var(--text-dark-gray);">Three quick steps. You will get a proof to review before you pay anything.</p>
 
             <div class="wizard-steps">
-                <div class="wizard-step" data-step-label="1"><strong>1.</strong> Who is it about?</div>
-                <div class="wizard-step" data-step-label="2"><strong>2.</strong> What kind of chart?</div>
+                <div class="wizard-step" data-step-label="1"><strong>1.</strong> What kind of chart?</div>
+                <div class="wizard-step" data-step-label="2"><strong>2.</strong> Who is it about?</div>
                 <div class="wizard-step" data-step-label="3"><strong>3.</strong> Review &amp; generate</div>
             </div>
 
             <!-- Step 1 -->
             <div class="card wizard-panel" data-step="1">
                 <div class="card-body">
-                    <h5 class="mb-3" style="color: var(--gold-primary);">Where should we get the family data?</h5>
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <div class="option-tile selected" data-source="familysearch">
-                                <div class="d-flex align-items-center mb-2">
-                                    <i class="fas fa-cloud me-2" style="color: var(--gold-primary);"></i>
-                                    <strong style="color: var(--text-gray);">From FamilySearch</strong>
+                    <div class="row g-4 align-items-start">
+                        <div class="col-lg-7">
+                            <h5 class="mb-3" style="color: var(--gold-primary);">What kind of chart?</h5>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <div class="option-tile selected" data-tree-type="ancestor">
+                                        <strong style="color: var(--text-gray);">Ancestor chart</strong>
+                                        <div><small style="color: var(--text-dark-gray);">Parents, grandparents, and back &mdash; the classic pedigree.</small></div>
+                                    </div>
                                 </div>
-                                <small style="color: var(--text-dark-gray);">We pull names, dates, and photos straight from your FamilySearch tree.</small>
+                                <div class="col-md-6">
+                                    <div class="option-tile" data-tree-type="descendant">
+                                        <strong style="color: var(--text-gray);">Descendant chart</strong>
+                                        <div><small style="color: var(--text-dark-gray);">Children, grandchildren, and forward from one couple.</small></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-md-5">
+                                    <label for="wizardGenerations" class="form-label">Generations</label>
+                                    <select class="form-select" id="wizardGenerations"></select>
+                                </div>
+                                <div class="col-md-7">
+                                    <label for="wizardFamilyName" class="form-label">Family name on the chart</label>
+                                    <input type="text" class="form-control" id="wizardFamilyName" placeholder="e.g. Eichelberger">
+                                </div>
+                            </div>
+
+                            <label class="form-label mt-4">Design</label>
+                            <div class="row g-2" id="wizardThemeSelection">
+                                <div class="col-6 col-md-3">
+                                    <div class="theme-selector selected" data-theme="royal-heritage">
+                                        <img src="assets/Eichelberger_black.jpg" alt="Royal Heritage" style="width:100%; height:80px; object-fit:cover; border-radius:6px;" class="mb-1">
+                                        <div class="text-center"><small style="color: var(--gold-primary); font-weight:600;">Royal Heritage</small></div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="theme-selector" data-theme="rustic-roots">
+                                        <img src="assets/Eichelberger_rustic.jpg" alt="Rustic Roots" style="width:100%; height:80px; object-fit:cover; border-radius:6px;" class="mb-1">
+                                        <div class="text-center"><small style="color: var(--gold-primary); font-weight:600;">Rustic Roots</small></div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="theme-selector" data-theme="vintage-botanical">
+                                        <img src="assets/Eichelberger_green.jpg" alt="Vintage Botanical" style="width:100%; height:80px; object-fit:cover; border-radius:6px;" class="mb-1">
+                                        <div class="text-center"><small style="color: var(--gold-primary); font-weight:600;">Vintage Botanical</small></div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="theme-selector" data-theme="ancestral-stone">
+                                        <img src="assets/Eichelberger_stone.jpg" alt="Ancestral Stone" style="width:100%; height:80px; object-fit:cover; border-radius:6px;" class="mb-1">
+                                        <div class="text-center"><small style="color: var(--gold-primary); font-weight:600;">Ancestral Stone</small></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 text-end">
+                                <button class="btn btn-warning" data-wizard-next="2">Continue<i class="fas fa-arrow-right ms-2"></i></button>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="option-tile" data-source="gedcom">
-                                <div class="d-flex align-items-center mb-2">
-                                    <i class="fas fa-file-arrow-up me-2" style="color: var(--gold-primary);"></i>
-                                    <strong style="color: var(--text-gray);">Upload a GEDCOM file</strong>
+                        <div class="col-lg-5">
+                            <div class="wizard-preview-shell">
+                                <div class="wizard-preview-title">Example preview</div>
+                                <div class="wizard-example-chart" data-example-preview>
+                                    <img alt="Example chart preview">
+                                    <svg class="wizard-start-arrow" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                                        <path class="arrow-ancestor" d="M5 75 H6 L14 75" fill="none" stroke="#e31c23" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        <path class="arrow-ancestor" d="M15 69 L20 75 L15 81 Z" fill="#e31c23"></path>
+                                        <path class="arrow-descendant" d="M20 10 H21 L35 10" fill="none" stroke="#e31c23" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        <path class="arrow-descendant" d="M36 4 L41 10 L36 16 Z" fill="#e31c23"></path>
+                                    </svg>
                                 </div>
-                                <small style="color: var(--text-dark-gray);">Exported from Ancestry, RootsMagic, or similar.</small>
                             </div>
                         </div>
-                    </div>
-
-                    <div id="familysearchSourcePanel">
-                        <label for="wizardStartingPerson" class="form-label">Who is at the center of this chart?</label>
-                        <select class="form-select mb-2" id="wizardStartingPerson">
-                            <option value="" disabled selected>Loading your family...</option>
-                        </select>
-                        <div id="wizardManualIdWrapper" style="display:none;">
-                            <input type="text" class="form-control" id="wizardManualId" placeholder="FamilySearch ID, e.g. KWQS-BYD">
-                            <div class="form-text">Find this on a person's FamilySearch profile page.</div>
-                        </div>
-                    </div>
-
-                    <div id="gedcomSourcePanel" style="display:none;">
-                        <label for="wizardGedcomFile" class="form-label">GEDCOM file</label>
-                        <input type="file" class="form-control mb-2" id="wizardGedcomFile" accept=".ged,.gedcom">
-                        <label for="wizardRootPointer" class="form-label mt-2">Root person pointer</label>
-                        <input type="text" class="form-control" id="wizardRootPointer" placeholder="e.g. @I1@">
-                        <div class="form-text">The individual ID in your GEDCOM the chart should center on.</div>
-                    </div>
-
-                    <div class="mt-4 text-end">
-                        <button class="btn btn-warning" data-wizard-next="2">Continue<i class="fas fa-arrow-right ms-2"></i></button>
                     </div>
                 </div>
             </div>
@@ -216,64 +315,77 @@
             <!-- Step 2 -->
             <div class="card wizard-panel" data-step="2" style="display:none;">
                 <div class="card-body">
-                    <h5 class="mb-3" style="color: var(--gold-primary);">What kind of chart?</h5>
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <div class="option-tile selected" data-tree-type="ancestor">
-                                <strong style="color: var(--text-gray);">Ancestor chart</strong>
-                                <div><small style="color: var(--text-dark-gray);">Parents, grandparents, and back &mdash; the classic pedigree.</small></div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="option-tile" data-tree-type="descendant">
-                                <strong style="color: var(--text-gray);">Descendant chart</strong>
-                                <div><small style="color: var(--text-dark-gray);">Children, grandchildren, and forward from one couple.</small></div>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="row g-4 align-items-start">
+                        <div class="col-lg-7">
+                            <h5 class="mb-3" style="color: var(--gold-primary);">Who is the center of this chart?</h5>
 
-                    <div class="row g-3">
-                        <div class="col-md-5">
-                            <label for="wizardGenerations" class="form-label">Generations</label>
-                            <select class="form-select" id="wizardGenerations"></select>
-                        </div>
-                        <div class="col-md-7">
-                            <label for="wizardFamilyName" class="form-label">Family name on the chart</label>
-                            <input type="text" class="form-control" id="wizardFamilyName" placeholder="e.g. Eichelberger">
-                        </div>
-                    </div>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <div class="option-tile selected" data-source="familysearch">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i class="fas fa-cloud me-2" style="color: var(--gold-primary);"></i>
+                                            <strong style="color: var(--text-gray);">From FamilySearch</strong>
+                                        </div>
+                                        <small style="color: var(--text-dark-gray);">We pull names, dates, and photos straight from your FamilySearch tree.</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="option-tile" data-source="gedcom">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i class="fas fa-file-arrow-up me-2" style="color: var(--gold-primary);"></i>
+                                            <strong style="color: var(--text-gray);">Upload a GEDCOM file</strong>
+                                        </div>
+                                        <small style="color: var(--text-dark-gray);">Exported from Ancestry, RootsMagic, or similar.</small>
+                                    </div>
+                                </div>
+                            </div>
 
-                    <label class="form-label mt-4">Design</label>
-                    <div class="row g-2" id="wizardThemeSelection">
-                        <div class="col-6 col-md-3">
-                            <div class="theme-selector selected" data-theme="royal-heritage">
-                                <img src="assets/Eichelberger_black.jpg" alt="Royal Heritage" style="width:100%; height:80px; object-fit:cover; border-radius:6px;" class="mb-1">
-                                <div class="text-center"><small style="color: var(--gold-primary); font-weight:600;">Royal Heritage</small></div>
+                            <div id="familysearchSourcePanel">
+                                <label for="wizardStartingPerson" class="form-label">Starting person</label>
+                                <select class="form-select mb-2" id="wizardStartingPerson">
+                                    <option value="" disabled selected>Loading your family...</option>
+                                </select>
+                                <div id="wizardManualIdWrapper" style="display:none;">
+                                    <input type="text" class="form-control" id="wizardManualId" placeholder="FamilySearch ID, e.g. KWQS-BYD">
+                                    <div class="form-text">Find this on a person's FamilySearch profile page.</div>
+                                </div>
+                                <div class="starting-guidance">
+                                    <i class="fas fa-arrow-pointer"></i>
+                                    <div id="startingGuidanceText">Pick the person shown by the red arrow in the example.</div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <div class="theme-selector" data-theme="rustic-roots">
-                                <img src="assets/Eichelberger_rustic.jpg" alt="Rustic Roots" style="width:100%; height:80px; object-fit:cover; border-radius:6px;" class="mb-1">
-                                <div class="text-center"><small style="color: var(--gold-primary); font-weight:600;">Rustic Roots</small></div>
-                            </div>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <div class="theme-selector" data-theme="vintage-botanical">
-                                <img src="assets/Eichelberger_green.jpg" alt="Vintage Botanical" style="width:100%; height:80px; object-fit:cover; border-radius:6px;" class="mb-1">
-                                <div class="text-center"><small style="color: var(--gold-primary); font-weight:600;">Vintage Botanical</small></div>
-                            </div>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <div class="theme-selector" data-theme="ancestral-stone">
-                                <img src="assets/Eichelberger_stone.jpg" alt="Ancestral Stone" style="width:100%; height:80px; object-fit:cover; border-radius:6px;" class="mb-1">
-                                <div class="text-center"><small style="color: var(--gold-primary); font-weight:600;">Ancestral Stone</small></div>
-                            </div>
-                        </div>
-                    </div>
 
-                    <div class="d-flex justify-content-between mt-4">
-                        <button class="btn btn-outline-secondary" data-wizard-back="1"><i class="fas fa-arrow-left me-2"></i>Back</button>
-                        <button class="btn btn-warning" data-wizard-next="3">Continue<i class="fas fa-arrow-right ms-2"></i></button>
+                            <div id="gedcomSourcePanel" style="display:none;">
+                                <label for="wizardGedcomFile" class="form-label">GEDCOM file</label>
+                                <input type="file" class="form-control mb-2" id="wizardGedcomFile" accept=".ged,.gedcom">
+                                <label for="wizardRootPointer" class="form-label mt-2">Root person pointer</label>
+                                <input type="text" class="form-control" id="wizardRootPointer" placeholder="e.g. @I1@">
+                                <div class="form-text">The individual ID in your GEDCOM the chart should center on.</div>
+                                <div class="starting-guidance">
+                                    <i class="fas fa-arrow-pointer"></i>
+                                    <div>The red arrow shows which GEDCOM person should be used as the root.</div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-between mt-4">
+                                <button class="btn btn-outline-secondary" data-wizard-back="1"><i class="fas fa-arrow-left me-2"></i>Back</button>
+                                <button class="btn btn-warning" data-wizard-next="3">Continue<i class="fas fa-arrow-right ms-2"></i></button>
+                            </div>
+                        </div>
+                        <div class="col-lg-5">
+                            <div class="wizard-preview-shell">
+                                <div class="wizard-preview-title">Starting person guide</div>
+                                <div class="wizard-example-chart" data-example-preview>
+                                    <img alt="Example chart preview">
+                                    <svg class="wizard-start-arrow" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                                        <path class="arrow-ancestor" d="M5 75 H6 L14 75" fill="none" stroke="#e31c23" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        <path class="arrow-ancestor" d="M15 69 L20 75 L15 81 Z" fill="#e31c23"></path>
+                                        <path class="arrow-descendant" d="M20 10 H21 L35 10" fill="none" stroke="#e31c23" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        <path class="arrow-descendant" d="M36 4 L41 10 L36 16 Z" fill="#e31c23"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -290,7 +402,7 @@
                             <input type="text" class="form-control" id="wizardContactName">
                         </div>
                         <div class="col-md-6">
-                            <label for="wizardContactEmail" class="form-label">Where should we send the proof?</label>
+                            <label for="wizardContactEmail" class="form-label">Where should we send the proof? <span style="color: var(--gold-primary);">*</span></label>
                             <input type="email" class="form-control" id="wizardContactEmail" required>
                         </div>
                     </div>
