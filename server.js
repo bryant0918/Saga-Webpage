@@ -79,7 +79,6 @@ app.get('/api/public-config.js', (req, res) => {
 
 // Note: These routes use their own body parsing as needed
 app.use('/api/create-payment-session', require('./api/create-payment-session'));
-app.use('/api/payment-status', require('./api/payment-status'));
 // Webhook must be mounted with raw body parser - handled in the route file
 app.use('/api/stripe-webhook', require('./api/stripe-webhook'));
 
@@ -190,7 +189,6 @@ function logStartup(port) {
   console.log(`\n📡 API Endpoints:`);
   console.log(`   POST /api/create-payment-session`);
   console.log(`   POST /api/stripe-webhook`);
-  console.log(`   GET  /api/payment-status`);
   console.log(`\n✅ Ready to accept requests!`);
 }
 

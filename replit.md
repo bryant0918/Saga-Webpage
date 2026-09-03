@@ -40,13 +40,12 @@ email; one ordering path is the point of the current design.
 - `create-payment-session.js` - creates Stripe Checkout. Requires an `orderId`
   and prices it from the **backend's** order record via
   `/orders/checkout-info`, ignoring client-supplied tree type and generations.
-- `stripe-webhook.js` - verifies the signature against the **raw** body, writes
-  status to Redis, then calls the backend's `/orders/mark-paid` through
-  `notify-backend.js`. Returns non-2xx on relay failure so Stripe retries.
+- `stripe-webhook.js` - verifies the signature against the **raw** body, then
+  calls the backend's `/orders/mark-paid` through `notify-backend.js`. Returns
+  non-2xx on relay failure so Stripe retries. Nothing runs before the unlock:
+  a Redis write once sat there and stranded every payment when Redis died.
 - `notify-backend.js` - the server-to-server bridge, authenticated by
   `INTERNAL_API_SECRET`.
-- `payment-status.js` - Redis polling. Currently **unused** by any page; the
-  dashboard polls the backend order record instead. Kept for now.
 
 **Never add a global `express.json()` to `server.js`.** It would break webhook
 signature verification and silently stop every payment from unlocking.
@@ -65,8 +64,7 @@ the three JS copies; checkout refuses at runtime if the backend disagrees.
 ## Persistence
 
 Chart orders, both PDFs, and payment state are persisted **by the backend** in
-Replit object storage. This repo holds no database. Redis caches payment status
-for 24h for the polling UI only.
+Replit object storage. This repo holds no database and no cache.
 
 ## Environment
 

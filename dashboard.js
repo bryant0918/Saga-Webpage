@@ -1412,19 +1412,46 @@ async function handleUrlIntent() {
         state.chartFilter = 'purchased';
         setGlobalMessage('Payment received. Unlocking your print files...', 'success');
         window.history.replaceState({}, document.title, window.location.pathname);
+
+        // Watch the specific chart that was bought. Checking whether ANY order
+        // is unlocked reports success off a previous purchase.
+        var purchasedId = params.get('order') || params.get('request_id');
+
+        function purchasedChartIsUnlocked() {
+            if (purchasedId) {
+                var match = findOrder(purchasedId);
+                return Boolean(match && match.is_unlocked);
+            }
+            return state.orders.some(function (order) {
+                return order.is_unlocked;
+            });
+        }
+
         // The webhook may land a moment after the browser redirect.
+        var unlocked = false;
         for (var attempt = 0; attempt < 5; attempt++) {
             await loadOrders();
             renderCharts();
-            var unlocked = state.orders.some(function (order) {
-                return order.is_unlocked;
-            });
+            unlocked = purchasedChartIsUnlocked();
             if (unlocked) break;
             await new Promise(function (resolve) {
                 setTimeout(resolve, 2000);
             });
         }
-        setGlobalMessage('Payment complete. Your print-ready file is available below.', 'success');
+
+        if (unlocked) {
+            setGlobalMessage('Payment complete. Your print-ready file is available below.', 'success');
+        } else {
+            // Claiming success over an empty tab is worse than saying nothing.
+            // The payment did go through; the unlock is what has not landed.
+            setGlobalMessage(
+                'Your payment went through, but the chart has not unlocked yet. ' +
+                    'This usually settles within a minute or two - refresh to check. ' +
+                    'If it is still locked after that, reply to your proof email and ' +
+                    'we will release it right away.',
+                'error'
+            );
+        }
         renderCharts();
         return;
     }
