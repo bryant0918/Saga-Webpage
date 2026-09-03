@@ -4,7 +4,7 @@
 const express = require('express');
 const router = express.Router();
 const Stripe = require('stripe');
-const { PRICE_MAP } = require('./stripe-pricing');
+const { PRICE_MAP, describeModeMismatch } = require('./stripe-pricing');
 const { fetchOrderForCheckout } = require('./notify-backend');
 
 // Initialize Stripe with secret key from environment
@@ -155,6 +155,16 @@ router.post('/', async (req, res) => {
       console.error(`Order ${orderId} has unsupported product key ${productKey}`);
       return res.status(400).json({
         error: `Unsupported product for this chart: ${productKey}`
+      });
+    }
+
+    // Catch a test key pointed at live price IDs before Stripe does, since its
+    // own error ("No such price") never mentions the mode.
+    const modeMismatch = describeModeMismatch();
+    if (modeMismatch) {
+      console.error(modeMismatch);
+      return res.status(500).json({
+        error: 'Stripe is misconfigured for this environment. Check the server logs.'
       });
     }
 
