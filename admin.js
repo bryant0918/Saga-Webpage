@@ -59,7 +59,10 @@ function formatFolderName(slug) {
 function getLookupPayload() {
     return {
         user_scope_id: adminState.selectedUserFolder,
-        context_id: adminState.selectedContext
+        context_id: adminState.selectedContext,
+        // The tree and artifact endpoints authenticate the caller now, and
+        // admins are the only ones allowed to act on another user's scope.
+        access_token: adminState.accessToken
     };
 }
 
@@ -94,7 +97,7 @@ async function searchTrees(query) {
         var response = await fetch(TREE_BACKEND_BASE_URL + "/people/tree/search", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query: query })
+            body: JSON.stringify({ query: query, access_token: adminState.accessToken })
         });
         if (!response.ok) throw new Error("Search failed");
         var data = await response.json();
@@ -176,7 +179,7 @@ async function loadChartBuilds() {
         var response = await fetch(TREE_BACKEND_BASE_URL + "/people/tree/chart-builds", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ user_scope_id: adminState.selectedUserFolder })
+            body: JSON.stringify({ user_scope_id: adminState.selectedUserFolder, access_token: adminState.accessToken })
         });
         if (!response.ok) throw new Error("Failed");
         var data = await response.json();
@@ -215,7 +218,7 @@ async function renamePdf(storagePath, currentName) {
         var response = await fetch(TREE_BACKEND_BASE_URL + "/people/tree/rename-pdf", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ storage_path: storagePath, new_name: newName })
+            body: JSON.stringify({ storage_path: storagePath, new_name: newName, access_token: adminState.accessToken })
         });
         if (!response.ok) throw new Error(await response.text());
         loadChartBuilds();
@@ -229,7 +232,7 @@ async function downloadPdf(storagePath, filename) {
         var response = await fetch(TREE_BACKEND_BASE_URL + "/people/tree/download-pdf", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ storage_path: storagePath })
+            body: JSON.stringify({ storage_path: storagePath, access_token: adminState.accessToken })
         });
         if (!response.ok) throw new Error("Download failed");
         var blob = await response.blob();
@@ -586,6 +589,9 @@ async function submitBuildChart() {
     payload.theme = theme;
     payload.max_generations = parseInt(maxGen, 10);
     payload.title = adminState.selectedContext;
+    // /build_chart is authenticated now. The backend lets an allowlisted admin
+    // act on any user's scope, which is what building on a customer's behalf is.
+    payload.access_token = adminState.accessToken;
 
     try {
         var response = await fetch(TREE_BACKEND_BASE_URL + "/build_chart", {
@@ -594,11 +600,14 @@ async function submitBuildChart() {
             body: JSON.stringify(payload)
         });
         if (!response.ok) throw new Error(await response.text());
-        statusEl.textContent = "Chart build started! PDF will appear in builds when ready.";
+        statusEl.textContent = "Chart build started. It will appear in Orders when ready.";
         statusEl.style.color = "var(--gold-primary)";
-        setTimeout(function() { loadChartBuilds(); }, 10000);
-        setTimeout(function() { loadChartBuilds(); }, 30000);
-        setTimeout(function() { loadChartBuilds(); }, 60000);
+        [10000, 30000, 60000].forEach(function(delay) {
+            setTimeout(function() {
+                loadChartBuilds();
+                if (window.AdminOrders) window.AdminOrders.load();
+            }, delay);
+        });
     } catch (error) {
         statusEl.textContent = "Build failed: " + error.message;
         statusEl.style.color = "#ffb4b4";

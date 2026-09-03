@@ -1,888 +1,1051 @@
-var DASHBOARD_CONFIG = window.APP_CONFIG || {};
-var TREE_BACKEND_BASE_URL = DASHBOARD_CONFIG.TREE_BACKEND_BASE_URL || "https://family-trees.replit.app";
+// dashboard.js - Charts-first dashboard.
+//
+// The organising object is a *chart order*, not a tree cache. A customer thinks
+// "I want a chart of my grandparents", not "I want to sync a tree context and
+// then build from it", so the grid lists charts and the tree cache is an
+// implementation detail the wizard fills in on their behalf.
+//
+// Three views swap in place: the charts grid, the new-chart wizard, and the
+// per-chart people editor.
 
 var SECTION_TO_JSON_TYPE = {
-    kids: "kids",
-    husb: "husb",
-    wife: "wife",
-    desc: "desc",
-    sibs: "sibs"
+    kids: 'kids',
+    husb: 'husb',
+    wife: 'wife',
+    desc: 'desc',
+    sibs: 'sibs'
 };
 
-var dashboardState = {
-    accessToken: null,
-    currentPerson: null,
-    userScopeId: null,
-    selectedContextId: null,
-    lookupTitle: "User Tree",
-    treeData: {
-        kids: null,
-        husb: null,
-        wife: null,
-        sibs: null,
-        desc: null,
-        metadata: null
-    },
+var POLL_INTERVAL_MS = 4000;
+var POLL_TIMEOUT_MS = 10 * 60 * 1000;
+
+var state = {
+    person: null,
+    orders: [],
+    activeOrderId: null,
+    chartFilter: 'proof',
+    pollTimer: null,
+    isPolling: false,
+    pollStartedAt: null,
+    wizard: null,
+    // Editor state, consumed by tree-renderer.js
+    contextId: null,
+    lookupTitle: 'User Tree',
+    treeData: { kids: null, husb: null, wife: null, sibs: null, desc: null, metadata: null },
     expandedPersonId: null,
     editingField: null,
     pendingImageEdit: null,
-    loadedAncestorGenerations: 4,
-    loadedDescendantGenerations: 3,
     personNames: {}
 };
 
-function getPersonLabel(personId) {
-    if (!personId) return "-";
-    var name = dashboardState.personNames[personId];
-    if (name) return name + " (" + personId + ")";
-    return personId;
-}
+/* ------------------------------------------------------------------ utils */
 
-function learnPersonName(personId, name) {
-    if (personId && name && name !== "Unknown") {
-        dashboardState.personNames[personId] = name;
-    }
-}
-
-function makePersonSlug(name, personId) {
-    if (!name || !personId) return personId || "";
-    var parts = name.trim().split(/\s+/);
-    var last = (parts[parts.length - 1] || "").toLowerCase().replace(/[^a-z]/g, "");
-    var first = (parts[0] || "").toLowerCase().replace(/[^a-z]/g, "");
-    if (!last && !first) return personId;
-    return last + "_" + first + "_" + personId;
-}
-
-function extractPersonIdFromSlug(slug) {
-    if (!slug) return "";
-    // Slug format: lastname_firstname_XXXX-XXXX or just XXXX-XXXX
-    var match = slug.match(/([A-Z0-9]{4}-[A-Z0-9]{2,4})$/);
-    if (match) return match[1];
-    return slug;
-}
-
-window.TreeRendererConfig = {
-    getState: function() { return { expandedPersonId: dashboardState.expandedPersonId, editingField: dashboardState.editingField, treeData: dashboardState.treeData }; },
-    togglePersonDetail: function(key) { dashboardState.expandedPersonId = dashboardState.expandedPersonId === key ? null : key; dashboardState.editingField = null; renderDataList(); },
-    startEdit: function(key) { startEdit(key); },
-    cancelEdit: function() { cancelEdit(); },
-    saveFieldEdit: function(s, p, f, v) { saveFieldEdit(s, p, f, v); },
-    triggerImageUpload: function(s, p) { triggerImageUpload(s, p); },
-    triggerCoupleImageUpload: function(p, s) { triggerCoupleImageUpload(p, s); },
-    loadPersonImage: function(id, name) { loadPersonImage(id, name); },
-    loadCoupleImage: function(id, path) { loadCoupleImage(id, path); },
-    getPersonName: function(pid) {
-        var sections = ["husb", "wife", "kids", "sibs", "desc"];
-        for (var i = 0; i < sections.length; i++) {
-            var d = dashboardState.treeData[sections[i]];
-            if (d && d[pid] && d[pid].name) return formatName(d[pid].name);
-        }
-        return dashboardState.personNames[pid] || "";
-    },
-    selectAsStartingPerson: function(personId) { selectAsStartingPerson(personId); },
-    addPerson: function(relationship, section, relativeId) {
-        window.TreeRenderer.showAddPersonModal(relationship, section, relativeId);
-    },
-    lookupFsPerson: function(fsId, callback) {
-        var apiBase = (DASHBOARD_CONFIG.FS_API_BASE_URL || "https://api.familysearch.org") + "/platform/tree";
-        fetch(apiBase + "/persons/" + fsId, {
-            headers: { "Accept": "application/x-gedcomx-v1+json", "Authorization": "Bearer " + dashboardState.accessToken }
-        }).then(function(r) { return r.ok ? r.json() : null; })
-        .then(function(data) {
-            if (!data || !data.persons || !data.persons[0]) { callback(null); return; }
-            var p = data.persons[0];
-            var d = p.display || {};
-            callback({ name: d.name || "Unknown", birth: d.birthDate || "", death: d.deathDate || "", gender: d.gender || "" });
-        }).catch(function() { callback(null); });
-    },
-    submitAddPerson: function() { submitAddPerson(); },
-    refreshPerson: function(section, personId) { refreshPerson(section, personId); },
-};
-
-function getCookie(name) {
-    var nameEQ = name + "=";
-    var ca = document.cookie.split(";");
-    for (var i = 0; i < ca.length; i++) {
-        var c = ca[i];
-        while (c.charAt(0) === " ") c = c.substring(1, c.length);
-        if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
-    }
-    return null;
-}
-
-function deleteCookie(name) {
-    document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-}
-
-function logout() {
-    deleteCookie("fs_access_token");
-    deleteCookie("fs_refresh_token");
-    deleteCookie("oauth_state");
-    sessionStorage.clear();
-    window.location.href = "/login";
-}
-
-function setDashboardMessage(message, isError) {
-    var el = document.getElementById("dashboardMessage");
-    if (!el) return;
-    el.textContent = message || "";
-    el.style.color = isError ? "#ffb4b4" : "var(--text-dark-gray)";
-}
-
-function setContextStatus() {
-    // no-op: status messages now go through setDashboardMessage
-}
-
-function setContextMeta(text) {
-    var el = document.getElementById("contextMeta");
-    if (!el) return;
-    el.textContent = text || "";
-}
-
-function updateSelectedRootDisplay() {
-    // no-op: context is shown via the dropdown itself
-}
-
-function getLookupPayload(contextId) {
-    var resolvedContextId = contextId || dashboardState.selectedContextId;
-    return {
-        title: dashboardState.lookupTitle || "User Tree",
-        family_search_id: resolvedContextId,
-        user_scope_id: dashboardState.userScopeId,
-        context_id: resolvedContextId
-    };
-}
-
-function escapeAttr(str) {
-    if (!str && str !== 0) return "";
-    return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
+function escapeAttr(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 }
 
 function formatName(nameValue) {
     if (Array.isArray(nameValue)) {
-        return nameValue.filter(Boolean).join(" ") || "Unknown";
+        return nameValue.filter(Boolean).join(' ') || 'Unknown';
     }
-    if (typeof nameValue === "string" && nameValue.trim()) {
+    if (typeof nameValue === 'string' && nameValue.trim()) {
         return nameValue.trim();
     }
-    return "Unknown";
+    return 'Unknown';
 }
 
 function getImageName(imagePath) {
     if (!imagePath) return null;
-    var parts = String(imagePath).replace(/\\/g, "/").split("/");
+    var parts = String(imagePath).replace(/\\/g, '/').split('/');
     return parts[parts.length - 1] || null;
 }
 
-async function fetchCurrentPerson(accessToken) {
-    try {
-        var response = await fetch((DASHBOARD_CONFIG.FS_API_BASE_URL || "https://api.familysearch.org") + "/platform/tree/current-person", {
-            method: "GET",
-            headers: {
-                "Accept": "application/x-gedcomx-v1+json",
-                "Authorization": "Bearer " + accessToken
-            }
+function learnPersonName(personId, name) {
+    if (personId && name && name !== 'Unknown') {
+        state.personNames[personId] = name;
+    }
+}
+
+function setGlobalMessage(message, kind) {
+    var el = document.getElementById('globalMessage');
+    if (!el) return;
+    if (!message) {
+        el.className = 'alert d-none';
+        el.textContent = '';
+        return;
+    }
+    var variant = kind === 'error' ? 'alert-danger' : kind === 'success' ? 'alert-success' : 'alert-info';
+    el.className = 'alert ' + variant;
+    el.textContent = message;
+}
+
+function setEditorMessage(message, isError) {
+    var el = document.getElementById('editorMessage');
+    if (!el) return;
+    el.textContent = message || '';
+    el.style.color = isError ? '#ffb4b4' : 'var(--text-dark-gray)';
+}
+
+function showView(name) {
+    ['chartsView', 'wizardView', 'editorView'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.style.display = id === name + 'View' ? '' : 'none';
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ------------------------------------------------------------- chart grid */
+
+function statusLabel(order) {
+    if (order.status === 'failed') return { text: 'Failed', cls: 'status-failed' };
+    if (order.status === 'building') return { text: 'Building', cls: 'status-building' };
+    if (order.archived) return { text: 'Archived', cls: 'status-archived' };
+    if (order.is_unlocked) return { text: 'Purchased', cls: 'status-paid' };
+    return { text: 'Proof ready', cls: 'status-proof' };
+}
+
+function getVisibleOrders() {
+    if (!state.orders || !state.orders.length) return [];
+
+    if (state.chartFilter === 'proof') {
+        return state.orders.filter(function (order) {
+            if (order.is_unlocked || order.archived) return false;
+            return ['ready', 'building', 'failed'].includes(order.status);
         });
-        if (!response.ok) throw new Error("Failed to fetch current person");
-        var data = await response.json();
-        var person = data.persons && data.persons[0];
-        if (!person) return null;
-        return {
-            name: (person.display && person.display.name) || "Unknown",
-            id: person.id || "Unknown"
-        };
-    } catch (error) {
-        console.error("Error fetching current person:", error);
-        return null;
     }
-}
-
-async function postJson(endpoint, payload, treat404AsNull) {
-    var response = await fetch(TREE_BACKEND_BASE_URL + endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-    });
-    if (treat404AsNull && response.status === 404) return null;
-    if (!response.ok) {
-        var text = "";
-        try {
-            text = await response.text();
-        } catch (_e) {
-            text = "";
-        }
-        throw new Error(text || ("Request failed with status " + response.status));
+    if (state.chartFilter === 'purchased') {
+        return state.orders.filter(function (order) {
+            return order.is_unlocked;
+        });
     }
-    return response.json();
-}
-
-async function fetchTreeData(endpoint, contextId) {
-    return postJson("/people/tree/" + endpoint, getLookupPayload(contextId), true);
-}
-
-function ensureContextOption(contextId) {
-    if (!contextId) return;
-    var select = document.getElementById("contextSelect");
-    if (!select) return;
-    var existing = Array.prototype.find.call(select.options, function(opt) {
-        return opt.value === contextId;
-    });
-    if (!existing) {
-        var option = document.createElement("option");
-        option.value = contextId;
-        option.textContent = getPersonLabel(contextId);
-        select.appendChild(option);
+    if (state.chartFilter === 'archived') {
+        return state.orders.filter(function (order) {
+            return Boolean(order.archived) && order.status === 'ready';
+        });
     }
+    return state.orders;
 }
 
-function contextOptionExists(contextId) {
-    var select = document.getElementById("contextSelect");
-    if (!select || !contextId) return false;
-    return Array.prototype.some.call(select.options, function(opt) {
-        return opt.value === contextId;
+function renderChartFilterButtons() {
+    document.querySelectorAll('[data-chart-filter]').forEach(function (button) {
+        var active = button.getAttribute('data-chart-filter') === state.chartFilter;
+        button.classList.toggle('active', active);
+        button.classList.toggle('btn-warning', active);
+        button.classList.toggle('btn-outline-warning', !active);
     });
 }
 
-function hasLoadedContextData(contextId) {
-    if (!contextId) return false;
-    if (dashboardState.selectedContextId !== contextId) return false;
+function renderCharts() {
+    var grid = document.getElementById('chartsGrid');
+    if (!grid) return;
+    renderChartFilterButtons();
 
-    var metadata = dashboardState.treeData.metadata;
-    if (metadata && metadata.context_id === contextId) {
-        return true;
-    }
+    var visibleOrders = getVisibleOrders();
+    if (!visibleOrders.length) {
+        var emptyTitle = state.chartFilter === 'proof'
+            ? 'No proofs yet'
+            : state.chartFilter === 'purchased'
+                ? 'No purchased charts'
+                : 'No archived charts';
+        var emptyText = state.chartFilter === 'proof'
+            ? 'Your charts in progress, proof-ready, or failed builds will appear here.'
+            : state.chartFilter === 'purchased'
+                ? 'Charts you have unlocked will appear here.'
+                : 'Archived proofs will show up here.';
 
-    return (
-        dashboardState.treeData.kids !== null ||
-        dashboardState.treeData.husb !== null ||
-        dashboardState.treeData.wife !== null ||
-        dashboardState.treeData.sibs !== null ||
-        dashboardState.treeData.desc !== null
-    );
-}
-
-function renderContexts(contexts, preferredContextId) {
-    var select = document.getElementById("contextSelect");
-    if (!select) return;
-
-    select.innerHTML = "";
-
-    if (!contexts || contexts.length === 0) {
-        var emptyOption = document.createElement("option");
-        emptyOption.value = "";
-        emptyOption.textContent = "No cached contexts yet";
-        emptyOption.selected = true;
-        select.appendChild(emptyOption);
-        dashboardState.selectedContextId = null;
-        updateSelectedRootDisplay();
+        grid.innerHTML =
+            '<div class="col-12">' +
+            '<div class="text-center py-5" style="border: 1px dashed var(--light-black); border-radius: 12px;">' +
+            '<i class="fas fa-tree fa-3x mb-3" style="color: var(--gold-primary); opacity: 0.5;"></i>' +
+            '<h4 style="color: var(--text-gray);">' + emptyTitle + '</h4>' +
+            '<p style="color: var(--text-dark-gray);">' + emptyText + '</p>' +
+            (state.chartFilter === 'all' ? '<button class="btn btn-warning" onclick="startWizard()"><i class="fas fa-plus me-2"></i>Create a chart</button>' : '') +
+            '</div></div>';
         return;
     }
 
-    contexts.forEach(function(contextId) {
-        var option = document.createElement("option");
-        option.value = contextId;
-        option.textContent = getPersonLabel(contextId);
-        select.appendChild(option);
+    var html = '';
+    visibleOrders.forEach(function (order) {
+        var badge = statusLabel(order);
+        var typeLabel = order.tree_type === 'ancestor' ? 'Ancestor' : 'Descendant';
+        var themeName = window.Pricing.themeDisplayName(order.theme);
+        var price = order.price_usd;
+
+        html += '<div class="col-md-6 col-xl-4">';
+        html += '<div class="chart-card">';
+
+        html += '<div class="chart-card-preview" data-order-preview="' + escapeAttr(order.order_id) + '">';
+        if (order.status === 'building') {
+            html += '<div class="text-center"><div class="spinner-border text-warning mb-2" role="status"></div>' +
+                '<div class="small" style="color: var(--text-dark-gray);">Building your chart...</div></div>';
+        } else if (order.status === 'failed') {
+            html += '<i class="fas fa-triangle-exclamation fa-2x" style="color: #fca5a5;"></i>';
+        } else {
+            html += '<div class="preview-skeleton"></div>';
+        }
+        html += '</div>';
+
+        html += '<div class="chart-card-body">';
+        html += '<div class="d-flex justify-content-between align-items-start mb-2">';
+        html += '<h5 class="mb-0" style="color: var(--gold-primary);">' + escapeAttr(order.title) + '</h5>';
+        html += '<span class="status-badge ' + badge.cls + '">' + badge.text + '</span>';
+        html += '</div>';
+        html += '<div class="small mb-1" style="color: var(--text-gray);">' + typeLabel + ' &middot; ' +
+            escapeAttr(order.max_generations) + ' generations</div>';
+        html += '<div class="small" style="color: var(--text-dark-gray);">' + escapeAttr(themeName) + '</div>';
+
+        if (order.status === 'failed' && order.error_message) {
+            html += '<div class="small mt-2" style="color: #fca5a5;">' + escapeAttr(order.error_message) + '</div>';
+        }
+
+        html += '<div class="chart-card-actions">';
+        if (order.status === 'ready') {
+            html += '<button class="btn btn-sm btn-outline-warning" onclick="downloadChart(\'' +
+                escapeAttr(order.order_id) + '\',\'proof\')"><i class="fas fa-eye me-1"></i>View proof</button>';
+            html += '<button class="btn btn-sm btn-outline-secondary" onclick="openEditor(\'' +
+                escapeAttr(order.order_id) + '\')"><i class="fas fa-pen me-1"></i>Edit</button>';
+            if (order.is_unlocked) {
+                html += '<button class="btn btn-sm btn-warning" onclick="downloadChart(\'' +
+                    escapeAttr(order.order_id) + '\',\'final\')"><i class="fas fa-download me-1"></i>Print file</button>';
+            } else {
+                html += '<button class="btn btn-sm btn-warning" onclick="buyChart(\'' +
+                    escapeAttr(order.order_id) + '\')"><i class="fas fa-lock-open me-1"></i>Buy' +
+                    (price ? ' $' + price : '') + '</button>';
+                html += '<button class="btn btn-sm btn-outline-secondary" onclick="archiveChart(\'' +
+                    escapeAttr(order.order_id) + '\', true)"><i class="fas fa-box-archive me-1"></i>Archive</button>';
+            }
+        } else if (order.status === 'failed') {
+            html += '<button class="btn btn-sm btn-outline-warning" onclick="regenerateChart(\'' +
+                escapeAttr(order.order_id) + '\')"><i class="fas fa-rotate me-1"></i>Try again</button>';
+        }
+        if (order.archived && order.status === 'ready' && !order.is_unlocked) {
+            html += '<button class="btn btn-sm btn-outline-secondary" onclick="archiveChart(\'' +
+                escapeAttr(order.order_id) + '\', false)"><i class="fas fa-box-open me-1"></i>Restore</button>';
+        }
+        html += '</div>';
+
+        html += '</div></div></div>';
     });
 
-    var desired = preferredContextId;
-    if (!desired || contexts.indexOf(desired) === -1) {
-        desired = dashboardState.selectedContextId;
-    }
-    if (!desired || contexts.indexOf(desired) === -1) {
-        desired = dashboardState.currentPerson && contexts.indexOf(dashboardState.currentPerson.id) !== -1
-            ? dashboardState.currentPerson.id
-            : contexts[0];
-    }
-
-    dashboardState.selectedContextId = desired;
-    select.value = desired;
-    updateSelectedRootDisplay();
+    grid.innerHTML = html;
+    visibleOrders.forEach(function (order) {
+        if (order.status !== 'ready') return;
+        loadOrderPreview(order.order_id, order.preview_storage_path || order.proof_storage_path);
+    });
 }
 
-async function refreshContexts(preferredContextId) {
+function loadOrderPreview(orderId, storagePath) {
+    if (!storagePath) return;
+    var previewNode = document.querySelector('[data-order-preview="' + CSS.escape(String(orderId)) + '"]');
+    if (!previewNode) return;
+
+    var payload = {
+        user_scope_id: state.person && state.person.scopeId,
+        order_id: orderId
+    };
+
+    window.FsAuth.postForBlob('/orders/preview', payload)
+        .then(function (blob) {
+            var url = URL.createObjectURL(blob);
+            previewNode.innerHTML = '<img src="' + escapeAttr(url) + '" alt="Chart preview" />';
+        })
+        .catch(function () {
+            previewNode.innerHTML = '<i class="fas fa-file-pdf fa-3x" style="color: var(--gold-primary); opacity: 0.6;"></i>';
+        });
+}
+
+async function handleChartFilterClick(event) {
+    var target = event.currentTarget || event.target;
+    if (!target) return;
+    var filter = target.getAttribute('data-chart-filter');
+    if (!filter) return;
+    state.chartFilter = filter;
+    renderCharts();
+}
+
+async function loadOrders() {
+    // Callers include the poll timer and post-checkout handler, which can fire
+    // after a session failure has left state.person unset.
+    if (!state.person) return;
+
     try {
-        setContextStatus("Refreshing context list...", false);
-        var result = await postJson("/people/tree/contexts", { user_scope_id: dashboardState.userScopeId }, false);
-        var contexts = (result && result.contexts) || [];
-        renderContexts(contexts, preferredContextId);
-        setContextStatus(contexts.length ? "Choose a starting person context." : "Initialize your tree cache to create a context.", false);
-        return contexts;
+        var result = await window.FsAuth.postJson('/orders/list', {
+            user_scope_id: state.person.scopeId
+        });
+        state.orders = (result && result.orders) || [];
+        renderCharts();
+        maybeStartPolling();
     } catch (error) {
-        console.error("Failed to refresh contexts:", error);
-        setContextStatus("Failed to load contexts.", true);
-        return [];
+        console.error('Failed to load charts:', error);
+        var grid = document.getElementById('chartsGrid');
+        if (grid) {
+            grid.innerHTML = '<div class="col-12 text-center py-5">' +
+                '<i class="fas fa-triangle-exclamation fa-2x mb-3" style="color: #fca5a5;"></i>' +
+                '<p style="color: #fca5a5;">Could not load your charts. ' + escapeAttr(error.message) + '</p></div>';
+        }
     }
 }
 
-async function loadChartBuilds() {
-    var listEl = document.getElementById("chartBuildsList");
-    if (!listEl) return;
-    listEl.textContent = "Loading...";
+function hasBuildingChart() {
+    return state.orders.some(function (order) {
+        return order.status === 'building';
+    });
+}
 
-    try {
-        var result = await postJson("/people/tree/chart-builds", { user_scope_id: dashboardState.userScopeId }, false);
-        var builds = (result && result.chart_builds) || [];
+function stopPolling() {
+    if (state.pollTimer) {
+        clearTimeout(state.pollTimer);
+    }
+    state.pollTimer = null;
+    state.isPolling = false;
+    state.pollStartedAt = null;
+}
 
-        if (!builds.length) {
-            listEl.innerHTML = '<span style="color: var(--text-dark-gray);">No chart requests yet. Click "Build Tree" to get started.</span>';
+/**
+ * Poll while any chart is still building, then stop.
+ *
+ * `isPolling` is the guard, not `pollTimer`. loadOrders() calls back into here,
+ * and the tick runs with no timer pending, so guarding on the handle alone let
+ * each cycle start a second chain while overwriting the first one's handle
+ * without clearing it. The pollers then doubled every interval.
+ *
+ * `pollStartedAt` lives on state for the same reason: a per-call variable was
+ * reset by each new chain, so the timeout never fired.
+ */
+function maybeStartPolling() {
+    if (!hasBuildingChart()) {
+        stopPolling();
+        return;
+    }
+
+    if (state.isPolling) return;
+
+    state.isPolling = true;
+    state.pollStartedAt = state.pollStartedAt || Date.now();
+
+    var tick = async function () {
+        state.pollTimer = null;
+
+        if (Date.now() - state.pollStartedAt > POLL_TIMEOUT_MS) {
+            setGlobalMessage(
+                'A chart is taking longer than expected. Refresh in a few minutes, or email us if it stays stuck.',
+                'error'
+            );
+            stopPolling();
             return;
         }
 
-        var html = '<ul class="list-unstyled mb-0">';
-        builds.forEach(function(build) {
-            html += '<li class="mb-2" style="border-bottom: 1px solid var(--light-black); padding-bottom: 8px;">';
-            html += '<div style="color: var(--text-gray); font-weight: 500;">' + escapeAttr(build.filename) + '</div>';
-            html += '<div style="color: var(--text-dark-gray); font-size: 0.8rem;">Context: ' + escapeAttr(getPersonLabel(build.context_id)) + '</div>';
-            html += '</li>';
+        // loadOrders() -> maybeStartPolling() is a no-op while isPolling holds,
+        // so this function stays the only scheduler.
+        await loadOrders();
+
+        if (state.isPolling && hasBuildingChart()) {
+            state.pollTimer = setTimeout(tick, POLL_INTERVAL_MS);
+        } else {
+            stopPolling();
+        }
+    };
+
+    state.pollTimer = setTimeout(tick, POLL_INTERVAL_MS);
+}
+
+function findOrder(orderId) {
+    return state.orders.filter(function (order) {
+        return order.order_id === orderId;
+    })[0];
+}
+
+/* --------------------------------------------------------- chart actions */
+
+async function downloadChart(orderId, variant) {
+    var order = findOrder(orderId);
+    setGlobalMessage('Preparing your download...', 'info');
+    try {
+        var blob = await window.FsAuth.postForBlob('/orders/download', {
+            user_scope_id: state.person.scopeId,
+            order_id: orderId,
+            variant: variant
         });
-        html += '</ul>';
-        listEl.innerHTML = html;
+        var suffix = variant === 'proof' ? '_PROOF' : '';
+        var title = (order && order.title ? order.title : 'Family').replace(/[^A-Za-z0-9 _-]/g, '').replace(/\s+/g, '_');
+        window.FsAuth.saveBlob(blob, title + '_Chart' + suffix + '.pdf');
+        setGlobalMessage('', null);
     } catch (error) {
-        console.error("Failed to load chart builds:", error);
-        listEl.innerHTML = '<span style="color: #ffb4b4;">Failed to load chart builds.</span>';
+        if (error.status === 402) {
+            setGlobalMessage('That chart has not been purchased yet.', 'error');
+            return;
+        }
+        setGlobalMessage('Download failed: ' + error.message, 'error');
     }
 }
 
-async function syncContext(rootPersonId, ancestorGenerations, descendantGenerations) {
-    var payload = {
-        access_token: dashboardState.accessToken,
-        user_scope_id: dashboardState.userScopeId,
-        root_person_id: rootPersonId,
-        title: dashboardState.lookupTitle,
-        ancestor_generations: ancestorGenerations || dashboardState.loadedAncestorGenerations,
-        descendant_generations: descendantGenerations || dashboardState.loadedDescendantGenerations,
-        include_spouse: true
-    };
-    var result = await postJson("/people/tree/sync", payload, false);
-    if (result && result.context_id) {
-        dashboardState.selectedContextId = result.context_id;
+async function archiveChart(orderId, archived) {
+    var order = findOrder(orderId);
+    if (!order || order.is_unlocked || order.status !== 'ready') return;
+
+    setGlobalMessage(archived ? 'Archiving this proof...' : 'Restoring this proof...', 'info');
+    try {
+        var response = await window.FsAuth.postJson('/orders/archive', {
+            user_scope_id: state.person.scopeId,
+            order_id: orderId,
+            archived: archived
+        });
+        var match = findOrder(orderId);
+        if (match) match.archived = !!(response && response.archived);
+        renderCharts();
+        setGlobalMessage('', null);
+    } catch (error) {
+        setGlobalMessage(error.message || 'Could not update the chart list.', 'error');
     }
-    return result;
 }
 
-function clearTreeData() {
-    dashboardState.treeData = {
-        kids: null,
-        husb: null,
-        wife: null,
-        sibs: null,
-        desc: null,
-        metadata: null
+async function buyChart(orderId) {
+    var order = findOrder(orderId);
+    if (!order) return;
+
+    setGlobalMessage('Opening secure checkout...', 'info');
+    try {
+        var response = await fetch('/api/create-payment-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                requestId: orderId,
+                orderId: orderId,
+                treeType: order.tree_type,
+                generations: order.max_generations,
+                familyName: order.title,
+                contactEmail: order.contact_email,
+                contactName: order.contact_name || (state.person && state.person.name),
+                contactPhone: '',
+                startingPerson: order.context_id,
+                theme: order.theme,
+                userId: state.person.scopeId,
+                returnPath: '/dashboard'
+            })
+        });
+
+        if (!response.ok) {
+            var errorBody = await response.json().catch(function () {
+                return {};
+            });
+            throw new Error(errorBody.error || 'Could not start checkout');
+        }
+
+        var session = await response.json();
+        window.location.href = session.sessionUrl;
+    } catch (error) {
+        setGlobalMessage('Could not open checkout: ' + error.message, 'error');
+    }
+}
+
+async function regenerateChart(orderId) {
+    var order = findOrder(orderId);
+    if (!order) return;
+
+    setGlobalMessage('Rebuilding your chart...', 'info');
+    try {
+        await window.FsAuth.postJson('/build_chart', {
+            user_scope_id: state.person.scopeId,
+            context_id: order.context_id,
+            tree_type: order.tree_type,
+            theme: order.theme,
+            title: order.title,
+            max_generations: order.max_generations,
+            contact_email: order.contact_email,
+            contact_name: order.contact_name
+        });
+        setGlobalMessage('Rebuilding. Your updated proof will be emailed when it is ready.', 'success');
+        showView('charts');
+        await loadOrders();
+    } catch (error) {
+        setGlobalMessage('Could not rebuild: ' + error.message, 'error');
+    }
+}
+
+/* ------------------------------------------------------------- the wizard */
+
+function defaultWizard() {
+    return {
+        step: 1,
+        source: 'familysearch',
+        startingPersonId: state.person ? state.person.id : '',
+        gedcomFile: null,
+        rootPointer: '',
+        treeType: 'ancestor',
+        generations: 5,
+        theme: 'royal-heritage',
+        familyName: '',
+        contactName: state.person ? state.person.name : '',
+        contactEmail: ''
     };
-    dashboardState.expandedPersonId = null;
-    dashboardState.editingField = null;
 }
 
-function renderMetaSummary() {
-    var metadata = dashboardState.treeData.metadata;
-    if (!metadata) {
-        setContextMeta("");
+/**
+ * Push state.wizard onto the DOM.
+ *
+ * The wizard is reused across charts, so its tiles and panels keep whatever
+ * the previous run left selected. Without this the screen can say
+ * "descendant, from GEDCOM" while state says ancestor-from-FamilySearch, and
+ * the customer receives a chart that does not match what they chose.
+ */
+function syncWizardDom() {
+    var wizard = state.wizard;
+
+    document.querySelectorAll('[data-source]').forEach(function (tile) {
+        tile.classList.toggle('selected', tile.getAttribute('data-source') === wizard.source);
+    });
+    var fsPanel = document.getElementById('familysearchSourcePanel');
+    var gedcomPanel = document.getElementById('gedcomSourcePanel');
+    if (fsPanel) fsPanel.style.display = wizard.source === 'familysearch' ? '' : 'none';
+    if (gedcomPanel) gedcomPanel.style.display = wizard.source === 'gedcom' ? '' : 'none';
+
+    document.querySelectorAll('[data-tree-type]').forEach(function (tile) {
+        tile.classList.toggle('selected', tile.getAttribute('data-tree-type') === wizard.treeType);
+    });
+
+    document.querySelectorAll('#wizardThemeSelection .theme-selector').forEach(function (tile) {
+        tile.classList.toggle('selected', tile.getAttribute('data-theme') === wizard.theme);
+    });
+
+    var manualWrapper = document.getElementById('wizardManualIdWrapper');
+    if (manualWrapper) manualWrapper.style.display = 'none';
+    var manualId = document.getElementById('wizardManualId');
+    if (manualId) manualId.value = '';
+
+    var gedcomFile = document.getElementById('wizardGedcomFile');
+    if (gedcomFile) gedcomFile.value = '';
+    var rootPointer = document.getElementById('wizardRootPointer');
+    if (rootPointer) rootPointer.value = '';
+
+    setWizardError('');
+    renderWizardExample();
+}
+
+function startWizard() {
+    if (!state.person) return;
+
+    state.wizard = defaultWizard();
+
+    var lastName = (state.person.name || '').trim().split(/\s+/).pop() || '';
+    state.wizard.familyName = lastName;
+
+    var nameInput = document.getElementById('wizardContactName');
+    if (nameInput) nameInput.value = state.wizard.contactName;
+    var familyInput = document.getElementById('wizardFamilyName');
+    if (familyInput) familyInput.value = lastName;
+
+    syncWizardDom();
+    syncGenerationOptions();
+    goToStep(1);
+    showView('wizard');
+    populateStartingPeople();
+}
+
+function goToStep(step) {
+    state.wizard.step = step;
+    document.querySelectorAll('.wizard-panel').forEach(function (panel) {
+        panel.style.display = Number(panel.getAttribute('data-step')) === step ? '' : 'none';
+    });
+    document.querySelectorAll('.wizard-step').forEach(function (el) {
+        var index = Number(el.getAttribute('data-step-label'));
+        el.classList.toggle('active', index === step);
+        el.classList.toggle('done', index < step);
+    });
+    if (step === 3) renderWizardSummary();
+    renderWizardExample();
+}
+
+function syncGenerationOptions() {
+    var select = document.getElementById('wizardGenerations');
+    if (!select) return;
+    var options = window.Pricing.GENERATION_OPTIONS[state.wizard.treeType] || [];
+    var current = state.wizard.generations;
+    select.innerHTML = '';
+    options.forEach(function (count) {
+        var option = document.createElement('option');
+        option.value = String(count);
+        option.textContent = count + ' generations';
+        select.appendChild(option);
+    });
+    state.wizard.generations = options.indexOf(current) !== -1 ? current : options[0];
+    select.value = String(state.wizard.generations);
+    renderWizardExample();
+}
+
+function wizardExampleImageSrc(treeType, generations, theme) {
+    var backendTheme = window.Pricing.mapThemeToBackend(theme);
+    return 'assets/examples/eichelberger-' + treeType + '-' + generations + '-' + backendTheme + '.jpg';
+}
+
+function renderWizardExample() {
+    if (!state.wizard) return;
+    var showArrow = state.wizard.step === 2;
+    var src = wizardExampleImageSrc(state.wizard.treeType, state.wizard.generations, state.wizard.theme);
+    var alt = (state.wizard.treeType === 'descendant' ? 'Descendant' : 'Ancestor') +
+        ' chart example, ' + state.wizard.generations + ' generations';
+
+    document.querySelectorAll('[data-example-preview]').forEach(function (container) {
+        var img = container.querySelector('img');
+        if (img && img.getAttribute('src') !== src) {
+            img.src = src;
+            img.alt = alt;
+        }
+        container.classList.toggle('show-arrow', showArrow);
+        container.classList.toggle('is-ancestor', state.wizard.treeType === 'ancestor');
+        container.classList.toggle('is-descendant', state.wizard.treeType === 'descendant');
+    });
+
+    var guidance = document.getElementById('startingGuidanceText');
+    if (guidance) {
+        guidance.textContent = state.wizard.treeType === 'descendant'
+            ? 'Pick the oldest person or couple you want the descendant chart to grow down from.'
+            : 'Pick the person whose parents, grandparents, and earlier ancestors should appear above them.';
+    }
+}
+
+async function populateStartingPeople() {
+    var select = document.getElementById('wizardStartingPerson');
+    if (!select) return;
+
+    select.innerHTML = '<option value="" disabled selected>Loading your family...</option>';
+
+    var people = [{ id: state.person.id, name: state.person.name + ' (you)' }];
+
+    try {
+        var result = await window.FsAuth.postJson('/people/family', {
+            root_person_id: state.person.id
+        });
+        (result && result.people ? result.people : []).forEach(function (person) {
+            if (!person.id || person.id === state.person.id) return;
+            var relation = person.relation ? ' - ' + person.relation : '';
+            people.push({ id: person.id, name: person.name + relation });
+            learnPersonName(person.id, person.name);
+        });
+    } catch (error) {
+        // A failed lookup is not fatal: the manual ID entry still works.
+        console.warn('Could not load family list:', error);
+    }
+
+    select.innerHTML = '';
+    people.forEach(function (person) {
+        var option = document.createElement('option');
+        option.value = person.id;
+        option.textContent = person.name + ' (' + person.id + ')';
+        select.appendChild(option);
+    });
+    var manual = document.createElement('option');
+    manual.value = '__other__';
+    manual.textContent = 'Someone else (enter a FamilySearch ID)';
+    select.appendChild(manual);
+
+    select.value = state.wizard.startingPersonId || state.person.id;
+}
+
+function renderWizardSummary() {
+    var wizard = state.wizard;
+    var container = document.getElementById('wizardSummary');
+    if (!container) return;
+
+    var backendTheme = window.Pricing.mapThemeToBackend(wizard.theme);
+    var price = window.Pricing.calculateTreePrice(wizard.treeType, wizard.generations);
+    var subject =
+        wizard.source === 'gedcom'
+            ? wizard.gedcomFile
+                ? wizard.gedcomFile.name
+                : 'GEDCOM upload'
+            : state.personNames[wizard.startingPersonId] || wizard.startingPersonId;
+
+    var rows = [
+        ['Centered on', subject],
+        ['Chart type', wizard.treeType === 'ancestor' ? 'Ancestor chart' : 'Descendant chart'],
+        ['Generations', String(wizard.generations)],
+        ['Design', window.Pricing.themeDisplayName(backendTheme)],
+        ['Family name', wizard.familyName || '(none)'],
+        [
+            'Print files',
+            price
+                ? '$' + price + ' when you are ready (preview now is free; only pay if you like it)'
+                : 'Quoted after generation'
+        ]
+    ];
+
+    var html = '<table class="table table-sm" style="color: var(--text-gray);"><tbody>';
+    rows.forEach(function (row) {
+        html += '<tr><td style="color: var(--text-dark-gray); width: 40%;">' + escapeAttr(row[0]) +
+            '</td><td>' + escapeAttr(row[1]) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+function setWizardError(message) {
+    var el = document.getElementById('wizardError');
+    if (!el) return;
+    if (!message) {
+        el.classList.add('d-none');
+        el.textContent = '';
+        return;
+    }
+    el.textContent = message;
+    el.classList.remove('d-none');
+}
+
+function validateStep(step) {
+    var wizard = state.wizard;
+    if (step === 1) {
+        if (!wizard.familyName.trim()) return 'Enter the family name to print on the chart.';
+        return null;
+    }
+    if (step === 2) {
+        if (wizard.source === 'gedcom') {
+            if (!wizard.gedcomFile) return 'Choose a GEDCOM file to upload.';
+            return null;
+        }
+        if (!wizard.startingPersonId) return 'Choose who the chart is about.';
+        return null;
+    }
+    return null;
+}
+
+async function submitWizard() {
+    var wizard = state.wizard;
+
+    wizard.contactName = (document.getElementById('wizardContactName') || {}).value || '';
+    wizard.contactEmail = ((document.getElementById('wizardContactEmail') || {}).value || '').trim();
+
+    if (!wizard.contactEmail) {
+        setWizardError('Enter an email address so we can send you the proof.');
+        return;
+    }
+    if (!/^[^@\s,;<>]+@[^@\s,;<>]+\.[A-Za-z]{2,}$/.test(wizard.contactEmail)) {
+        setWizardError('Enter a valid email address so we can send you the proof.');
         return;
     }
 
-    var counts = metadata.counts || {};
-    var summary =
-        "Ancestors: " + (metadata.ancestor_generations || dashboardState.loadedAncestorGenerations) +
-        " gens | Descendants: " + (metadata.descendant_generations || dashboardState.loadedDescendantGenerations) +
-        " gens | People: " +
-        [counts.husb || 0, counts.wife || 0, counts.children || 0, counts.descendants || 0].reduce(function(a, b) { return a + b; }, 0);
+    var button = document.getElementById('wizardGenerateBtn');
+    if (button) {
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Preparing your data...';
+    }
+    setWizardError('');
 
-    setContextMeta(summary);
+    try {
+        var contextId;
+
+        if (wizard.source === 'gedcom') {
+            var formData = new FormData();
+            formData.append('gedcom_file', wizard.gedcomFile);
+            formData.append('user_scope_id', state.person.scopeId);
+            formData.append('title', wizard.familyName);
+            formData.append('root_pointer', wizard.rootPointer || '');
+            formData.append('ancestor_generations', String(wizard.treeType === 'ancestor' ? wizard.generations : 4));
+            formData.append('descendant_generations', String(wizard.treeType === 'descendant' ? wizard.generations : 3));
+
+            var imported = await window.FsAuth.postFormData('/people/tree/import-gedcom', formData);
+            contextId = imported.context_id;
+            if (button) button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting your chart request...';
+            await window.FsAuth.postJson('/build_chart', {
+                user_scope_id: state.person.scopeId,
+                context_id: contextId,
+                tree_type: wizard.treeType,
+                theme: window.Pricing.mapThemeToBackend(wizard.theme),
+                title: wizard.familyName,
+                max_generations: wizard.generations,
+                contact_email: wizard.contactEmail,
+                contact_name: wizard.contactName,
+                send_confirmation: true
+            });
+        } else {
+            if (button) button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting your chart request...';
+            await window.FsAuth.postJson('/build_chart', {
+                user_scope_id: state.person.scopeId,
+                root_person_id: wizard.startingPersonId,
+                tree_type: wizard.treeType,
+                theme: window.Pricing.mapThemeToBackend(wizard.theme),
+                title: wizard.familyName,
+                max_generations: wizard.generations,
+                ancestor_generations: wizard.treeType === 'ancestor' ? wizard.generations : 4,
+                descendant_generations: wizard.treeType === 'descendant' ? wizard.generations : 3,
+                contact_email: wizard.contactEmail,
+                contact_name: wizard.contactName,
+                send_confirmation: true
+            });
+        }
+
+        showView('charts');
+        setGlobalMessage(
+            'Request received. We will email your confirmation now and send your proof to ' +
+                wizard.contactEmail + ' as soon as it is ready.',
+            'success'
+        );
+        await loadOrders();
+    } catch (error) {
+        setWizardError(error.message || 'Something went wrong. Please try again.');
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-wand-magic-sparkles me-2"></i>Generate my proof';
+        }
+    }
+}
+
+/* ------------------------------------------------------------ the editor */
+
+function getLookupPayload() {
+    return {
+        title: state.lookupTitle || 'User Tree',
+        family_search_id: state.contextId,
+        user_scope_id: state.person.scopeId,
+        context_id: state.contextId
+    };
+}
+
+async function openEditor(orderId) {
+    var order = findOrder(orderId);
+    if (!order) return;
+
+    state.activeOrderId = orderId;
+    state.contextId = order.context_id;
+    state.lookupTitle = order.title;
+
+    document.getElementById('editorTitle').textContent = order.title;
+    document.getElementById('editorMeta').textContent =
+        (order.tree_type === 'ancestor' ? 'Ancestor chart' : 'Descendant chart') +
+        ' · ' + order.max_generations + ' generations · ' +
+        window.Pricing.themeDisplayName(order.theme);
+
+    var actions = document.getElementById('editorActions');
+    actions.innerHTML =
+        '<button class="btn btn-outline-warning btn-sm" onclick="downloadChart(\'' + escapeAttr(orderId) +
+        '\',\'proof\')"><i class="fas fa-eye me-1"></i>View proof</button>' +
+        '<button class="btn btn-warning btn-sm" onclick="regenerateChart(\'' + escapeAttr(orderId) +
+        '\')"><i class="fas fa-rotate me-1"></i>Regenerate chart</button>';
+
+    showView('editor');
+    await loadTreeData();
+}
+
+async function fetchTreeSection(endpoint) {
+    return window.FsAuth.postJson('/people/tree/' + endpoint, getLookupPayload(), {
+        treat404AsNull: true
+    });
 }
 
 async function loadTreeData() {
-    var contextId = dashboardState.selectedContextId;
-    var container = document.getElementById("dataListContainer");
-
+    var container = document.getElementById('dataListContainer');
     if (!container) return;
-    if (!contextId) {
-        container.innerHTML = '<div class="text-center py-5"><p style="color: var(--text-dark-gray);">Select or create a context first.</p></div>';
-        return;
-    }
 
-    clearTreeData();
-    container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-warning mb-3" role="status"><span class="visually-hidden">Loading...</span></div><p style="color: var(--text-gray);">Loading cached tree data...</p></div>';
-    setDashboardMessage("Loading cached data for " + getPersonLabel(contextId) + "...", false);
+    container.innerHTML =
+        '<div class="text-center py-5"><div class="spinner-border text-warning mb-3" role="status"></div>' +
+        '<p style="color: var(--text-gray);">Loading the people on this chart...</p></div>';
 
     try {
         var results = await Promise.allSettled([
-            fetchTreeData("kids", contextId),
-            fetchTreeData("husb", contextId),
-            fetchTreeData("wife", contextId),
-            fetchTreeData("siblings", contextId),
-            fetchTreeData("descendants", contextId),
-            fetchTreeData("metadata", contextId)
+            fetchTreeSection('kids'),
+            fetchTreeSection('husb'),
+            fetchTreeSection('wife'),
+            fetchTreeSection('siblings'),
+            fetchTreeSection('descendants'),
+            fetchTreeSection('metadata')
         ]);
 
-        dashboardState.treeData.kids = results[0].status === "fulfilled" ? results[0].value : null;
-        dashboardState.treeData.husb = results[1].status === "fulfilled" ? results[1].value : null;
-        dashboardState.treeData.wife = results[2].status === "fulfilled" ? results[2].value : null;
-        dashboardState.treeData.sibs = results[3].status === "fulfilled" ? results[3].value : null;
-        dashboardState.treeData.desc = results[4].status === "fulfilled" ? results[4].value : null;
-        dashboardState.treeData.metadata = results[5].status === "fulfilled" ? results[5].value : null;
+        var keys = ['kids', 'husb', 'wife', 'sibs', 'desc', 'metadata'];
+        keys.forEach(function (key, index) {
+            state.treeData[key] = results[index].status === 'fulfilled' ? results[index].value : null;
+        });
 
-        var metadata = dashboardState.treeData.metadata;
-        if (metadata) {
-            dashboardState.loadedAncestorGenerations = metadata.ancestor_generations || dashboardState.loadedAncestorGenerations;
-            dashboardState.loadedDescendantGenerations = metadata.descendant_generations || dashboardState.loadedDescendantGenerations;
-            if (metadata.title) dashboardState.lookupTitle = metadata.title;
-        }
-
-        ["kids", "husb", "wife", "sibs", "desc"].forEach(function(section) {
-            var data = dashboardState.treeData[section];
-            if (data && typeof data === "object") {
-                Object.keys(data).forEach(function(pid) {
-                    var p = data[pid];
-                    if (p && p.name) learnPersonName(pid, p.name);
+        ['kids', 'husb', 'wife', 'sibs', 'desc'].forEach(function (section) {
+            var data = state.treeData[section];
+            if (data && typeof data === 'object') {
+                Object.keys(data).forEach(function (personId) {
+                    if (data[personId] && data[personId].name) {
+                        learnPersonName(personId, formatName(data[personId].name));
+                    }
                 });
             }
         });
 
         renderDataList();
-        renderMetaSummary();
-
-        var hasAnyData = dashboardState.treeData.kids || dashboardState.treeData.husb ||
-            dashboardState.treeData.wife || dashboardState.treeData.sibs || dashboardState.treeData.desc;
-
-        if (!hasAnyData) {
-            container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-warning mb-3" role="status"><span class="visually-hidden">Loading...</span></div><p style="color: var(--text-gray);">Fetching tree data from FamilySearch...</p><p class="small" style="color: var(--text-dark-gray);">This may take a minute for a new person.</p></div>';
-            setDashboardMessage("Fetching from FamilySearch...", false);
-            var personId = extractPersonIdFromSlug(contextId);
-            await syncContext(personId, dashboardState.loadedAncestorGenerations, dashboardState.loadedDescendantGenerations);
-            await refreshContexts(dashboardState.selectedContextId);
-            await loadTreeData();
-            return;
-        }
-
-        var failures = results.filter(function(r) { return r.status === "rejected"; });
-        if (failures.length) {
-            setDashboardMessage("Loaded with partial data. Some sections were unavailable.", false);
-        } else {
-            setDashboardMessage("", false);
-        }
+        setEditorMessage('');
     } catch (error) {
-        console.error("Error loading tree data:", error);
-        container.innerHTML = '<div class="text-center py-5"><i class="fas fa-exclamation-triangle fa-2x mb-3" style="color: #dc3545;"></i><p style="color: #dc3545;">Failed to load tree data.</p></div>';
-        setDashboardMessage("Failed to load data.", true);
+        container.innerHTML =
+            '<div class="text-center py-5"><i class="fas fa-triangle-exclamation fa-2x mb-3" style="color: #fca5a5;"></i>' +
+            '<p style="color: #fca5a5;">Could not load this chart\'s people.</p></div>';
+        setEditorMessage(error.message, true);
     }
 }
 
-async function initializeCache() {
-    if (!dashboardState.currentPerson || !dashboardState.currentPerson.id) return;
-    var container = document.getElementById("dataListContainer");
+function renderDataList() {
+    var container = document.getElementById('dataListContainer');
+    if (!container) return;
 
-    try {
-        if (container) container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-warning mb-3" role="status"><span class="visually-hidden">Loading...</span></div><p style="color: var(--text-gray);">Setting up your tree data...</p><p class="small" style="color: var(--text-dark-gray);">Fetching from FamilySearch. This may take a minute.</p></div>';
-        setDashboardMessage("Initializing...", false);
-        await syncContext(dashboardState.currentPerson.id, 4, 3);
-        await refreshContexts(dashboardState.selectedContextId);
-        await loadTreeData();
-        await loadChartBuilds();
-        setDashboardMessage("", false);
-    } catch (error) {
-        console.error("Initialize failed:", error);
-        if (container) container.innerHTML = '<div class="text-center py-5"><i class="fas fa-exclamation-triangle fa-2x mb-3" style="color: #dc3545;"></i><p style="color: #dc3545;">Failed to initialize. Please refresh and try again.</p></div>';
-        setDashboardMessage("Failed to initialize.", true);
-    }
-}
-
-async function fetchSelectedContextData() {
-    if (!dashboardState.selectedContextId) return;
-    var rootPersonId = extractPersonIdFromSlug(dashboardState.selectedContextId);
-    try {
-        setDashboardMessage("Fetching fresh FamilySearch data for " + getPersonLabel(rootPersonId) + "...", false);
-        await syncContext(
-            rootPersonId,
-            dashboardState.loadedAncestorGenerations,
-            dashboardState.loadedDescendantGenerations
-        );
-        await refreshContexts(dashboardState.selectedContextId);
-        await loadTreeData();
-        await loadChartBuilds();
-        setDashboardMessage("Context refreshed.", false);
-    } catch (error) {
-        console.error("Fetch selected context failed:", error);
-        setDashboardMessage("Failed to fetch data for this context.", true);
-    }
-}
-
-async function refreshPerson(section, personId) {
-    if (!confirm("Re-fetch this person's data from FamilySearch? This may overwrite any unsynced local edits.")) return;
-
-    // Show spinner on the refresh button
-    var btns = document.querySelectorAll('[title="Refresh from FamilySearch"]');
-    var targetBtn = null;
-    btns.forEach(function(btn) {
-        if (btn.getAttribute("onclick") && btn.getAttribute("onclick").indexOf(personId) !== -1) {
-            targetBtn = btn;
-        }
-    });
-    if (targetBtn) {
-        targetBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 0.75rem;"></i>';
-        targetBtn.disabled = true;
-    }
-
-    var payload = getLookupPayload();
-    payload.json_type = SECTION_TO_JSON_TYPE[section] || section;
-    payload.individual_id = personId;
-    payload.access_token = dashboardState.accessToken;
-
-    try {
-        var response = await postJson("/people/tree/refresh-person", payload, false);
-        if (response && response.updated) {
-            if (!dashboardState.treeData[section]) dashboardState.treeData[section] = {};
-            dashboardState.treeData[section][personId] = response.updated;
-            if (response.updated.name) learnPersonName(personId, formatName(response.updated.name));
-        }
-        renderDataList();
-        setDashboardMessage("Refreshed data for " + getPersonLabel(personId) + ".", false);
-    } catch (error) {
-        console.error("Error refreshing person:", error);
-        setDashboardMessage("Failed to refresh " + getPersonLabel(personId) + ": " + error.message, true);
-        if (targetBtn) {
-            targetBtn.innerHTML = '<i class="fas fa-arrows-rotate" style="font-size: 0.75rem;"></i>';
-            targetBtn.disabled = false;
-        }
-    }
-}
-
-async function fetchNextAncestorGeneration() {
-    if (!dashboardState.selectedContextId) return;
-    var rootPersonId = extractPersonIdFromSlug(dashboardState.selectedContextId);
-    var nextGen = Math.min(5, (dashboardState.loadedAncestorGenerations || 4) + 1);
-
-    if (nextGen === dashboardState.loadedAncestorGenerations) {
-        setDashboardMessage("Already at max ancestor depth (5 generations).", false);
+    var data = state.treeData;
+    if (!data.kids && !data.husb && !data.wife && !data.sibs && !data.desc) {
+        container.innerHTML =
+            '<div class="text-center py-5"><p style="color: var(--text-dark-gray);">No people cached for this chart yet.</p></div>';
         return;
     }
 
-    try {
-        setDashboardMessage("Fetching ancestor generation " + nextGen + "...", false);
-        await syncContext(
-            rootPersonId,
-            nextGen,
-            dashboardState.loadedDescendantGenerations
-        );
-        dashboardState.loadedAncestorGenerations = nextGen;
-        await loadTreeData();
-        setDashboardMessage("Extended ancestor depth to " + nextGen + " generations.", false);
-    } catch (error) {
-        console.error("Fetch next generation failed:", error);
-        setDashboardMessage("Failed to fetch next ancestor generation.", true);
-    }
-}
-
-function togglePersonDetail(expandKey) {
-    if (dashboardState.expandedPersonId === expandKey) {
-        dashboardState.expandedPersonId = null;
-    } else {
-        dashboardState.expandedPersonId = expandKey;
-    }
-    dashboardState.editingField = null;
-    renderDataList();
+    container.innerHTML =
+        window.TreeRenderer.renderAllSections(data) ||
+        '<div class="text-center py-5"><p style="color: var(--text-dark-gray);">No visible people.</p></div>';
 }
 
 function startEdit(fieldKey) {
-    dashboardState.editingField = fieldKey;
+    state.editingField = fieldKey;
     renderDataList();
-    setTimeout(function() {
-        var input = document.getElementById("edit-input-" + fieldKey.replace(/[^a-zA-Z0-9]/g, "_"));
+    setTimeout(function () {
+        var input = document.getElementById('edit-input-' + fieldKey.replace(/[^a-zA-Z0-9]/g, '_'));
         if (input) input.focus();
     }, 50);
 }
 
 function cancelEdit() {
-    dashboardState.editingField = null;
+    state.editingField = null;
     renderDataList();
 }
 
 async function saveFieldEdit(section, personId, fieldName, newValue) {
-    var syncToFs = confirm("Also update this change on FamilySearch?");
+    var syncToFs = confirm('Also update this change on FamilySearch?');
 
     var payload = getLookupPayload();
     payload.json_type = SECTION_TO_JSON_TYPE[section];
     payload.individual_id = personId;
     payload[fieldName] = newValue;
-
-    if (syncToFs && dashboardState.accessToken) {
+    if (syncToFs) {
         payload.sync_to_familysearch = true;
-        payload.access_token = dashboardState.accessToken;
     }
 
     try {
-        var response = await postJson("/people/tree/update", payload, false);
-        if (response && response.updated && dashboardState.treeData[section] && dashboardState.treeData[section][personId]) {
-            var person = dashboardState.treeData[section][personId];
-            if (fieldName === "first_name") {
-                if (!Array.isArray(person.name)) person.name = ["", ""];
-                person.name[0] = newValue;
-            } else if (fieldName === "last_name") {
-                if (!Array.isArray(person.name)) person.name = ["", ""];
-                person.name[1] = newValue;
+        var response = await window.FsAuth.postJson('/people/tree/update', payload);
+        var person = state.treeData[section] && state.treeData[section][personId];
+        if (response && response.updated && person) {
+            if (fieldName === 'first_name' || fieldName === 'last_name') {
+                if (!Array.isArray(person.name)) person.name = ['', ''];
+                person.name[fieldName === 'first_name' ? 0 : 1] = newValue;
             } else {
                 person[fieldName] = newValue;
             }
         }
-        dashboardState.editingField = null;
+        state.editingField = null;
         renderDataList();
 
-        var msg = "Saved update for " + personId + ".";
-        if (response && response.familysearch_sync === "success") {
-            msg += " Also updated on FamilySearch.";
-        } else if (response && response.familysearch_sync && response.familysearch_sync !== "success") {
-            msg += " (FamilySearch sync failed)";
+        var message = 'Saved.';
+        if (response && response.familysearch_sync === 'success') {
+            message += ' Also updated on FamilySearch.';
+        } else if (response && response.familysearch_sync) {
+            message += ' (FamilySearch sync failed)';
         }
-        setDashboardMessage(msg, false);
+        setEditorMessage(message);
     } catch (error) {
-        console.error("Error saving field:", error);
-        alert("Failed to save changes. Please try again.");
-    }
-}
-
-async function submitAddPerson() {
-    var mode = document.getElementById("addPersonMode").value;
-    var personId = (document.getElementById("addPersonId").value || "").trim();
-    var relationship = document.getElementById("addPersonRelationship").value;
-    var section = document.getElementById("addPersonSection").value;
-    var relativeId = document.getElementById("addPersonRelativeId").value;
-    var errEl = document.getElementById("addPersonError");
-
-    var firstName = "", lastName = "", birth = "", gender = "Male";
-    if (mode === "new") {
-        firstName = (document.getElementById("addPersonFirstName").value || "").trim();
-        lastName = (document.getElementById("addPersonLastName").value || "").trim();
-        gender = (document.getElementById("addPersonGender").value || "Male");
-        birth = (document.getElementById("addPersonBirth").value || "").trim();
-        if (!firstName) {
-            if (errEl) { errEl.textContent = "First name is required."; errEl.style.display = ""; }
-            return;
-        }
-    }
-
-    if (!personId && mode !== "new") {
-        if (errEl) { errEl.textContent = "No person selected."; errEl.style.display = ""; }
-        return;
-    }
-
-    var includeSpouse = false;
-    var spouseConfirm = document.getElementById("addPersonSpouseConfirm");
-    if (spouseConfirm && spouseConfirm.style.display !== "none") {
-        includeSpouse = document.getElementById("addPersonIncludeSpouse").checked;
-    }
-
-    var createOnFs = false;
-    if (mode === "new" && dashboardState.accessToken) {
-        createOnFs = confirm("Also create this person on FamilySearch?\n\n(OK = create on FamilySearch with a real ID, Cancel = local only)");
-    }
-
-    var payload = getLookupPayload();
-    payload.person_id = personId || "";
-    payload.first_name = firstName;
-    payload.last_name = lastName;
-    payload.gender = gender;
-    payload.birth = birth;
-    payload.relationship = relationship;
-    payload.relative_id = relativeId;
-    payload.data_type = section;
-    payload.mode = mode;
-    payload.include_spouse = includeSpouse;
-    payload.access_token = dashboardState.accessToken;
-    payload.create_on_fs = createOnFs;
-
-    try {
-        var response = await fetch(TREE_BACKEND_BASE_URL + "/people/tree/add-person", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-        if (!response.ok) {
-            var err = await response.json();
-            throw new Error(err.error || "Failed to add person");
-        }
-        var modal = bootstrap.Modal.getInstance(document.getElementById("addPersonModal"));
-        if (modal) modal.hide();
-        var result = await response.json();
-        if (result.person_name) learnPersonName(personId, result.person_name);
-        await loadTreeData();
-    } catch (error) {
-        if (errEl) { errEl.textContent = error.message; errEl.style.display = ""; }
+        setEditorMessage('Could not save: ' + error.message, true);
     }
 }
 
 function triggerImageUpload(section, personId) {
-    dashboardState.pendingImageEdit = { section: section, personId: personId };
-    var fileInput = document.getElementById("imageUploadInput");
-    if (fileInput) {
-        fileInput.value = "";
-        fileInput.click();
+    state.pendingImageEdit = { section: section, personId: personId };
+    var input = document.getElementById('imageUploadInput');
+    if (input) {
+        input.value = '';
+        input.click();
     }
 }
 
-async function uploadNewImage(section, personId, file) {
-    var syncChoice = promptFsSyncForImage();
-
-    var formData = new FormData();
-    var payload = getLookupPayload();
-    formData.append("title", payload.title);
-    formData.append("family_search_id", payload.family_search_id);
-    formData.append("user_scope_id", payload.user_scope_id);
-    formData.append("context_id", payload.context_id);
-    formData.append("json_type", SECTION_TO_JSON_TYPE[section]);
-    formData.append("individual_id", personId);
-    formData.append("image", file);
-
-    if (syncChoice && dashboardState.accessToken) {
-        formData.append("access_token", dashboardState.accessToken);
-        if (syncChoice === "portrait") {
-            formData.append("sync_to_familysearch", "true");
-            formData.append("set_as_portrait", "true");
-        } else if (syncChoice === "upload") {
-            formData.append("sync_to_familysearch", "true");
-        }
+function triggerCoupleImageUpload(personId, spouseId) {
+    state.pendingImageEdit = { coupleUpload: true, personId: personId, spouseId: spouseId };
+    var input = document.getElementById('imageUploadInput');
+    if (input) {
+        input.value = '';
+        input.click();
     }
-
-    try {
-        var response = await fetch(TREE_BACKEND_BASE_URL + "/people/tree/update-image", {
-            method: "POST",
-            body: formData
-        });
-        if (!response.ok) {
-            var errText = await response.text();
-            throw new Error(errText || "Image upload failed");
-        }
-        var result = await response.json();
-        if (result.updated_image_path && dashboardState.treeData[section] && dashboardState.treeData[section][personId]) {
-            dashboardState.treeData[section][personId].image = result.updated_image_path;
-        }
-        renderDataList();
-
-        var msg = "Updated image for " + personId + ".";
-        if (result.familysearch_sync === "portrait_set") {
-            msg += " Set as profile picture on FamilySearch.";
-        } else if (result.familysearch_sync === "uploaded") {
-            msg += " Uploaded to FamilySearch.";
-        } else if (result.familysearch_sync && result.familysearch_sync.indexOf("failed") === 0) {
-            msg += " (FamilySearch sync failed)";
-        }
-        setDashboardMessage(msg, false);
-    } catch (error) {
-        console.error("Error uploading image:", error);
-        alert("Failed to upload image. Please try again.");
-    }
-}
-
-function promptFsSyncForImage() {
-    if (!confirm("Also update this photo on FamilySearch?")) {
-        return null;
-    }
-    if (confirm("Set as profile picture on FamilySearch?\n\n(OK = set as profile picture, Cancel = upload only)")) {
-        return "portrait";
-    }
-    return "upload";
 }
 
 function handleImageFileSelected(input) {
-    if (!input.files || !input.files[0] || !dashboardState.pendingImageEdit) return;
+    if (!input.files || !input.files[0] || !state.pendingImageEdit) return;
     var file = input.files[0];
-    var info = dashboardState.pendingImageEdit;
-    dashboardState.pendingImageEdit = null;
+    var info = state.pendingImageEdit;
+    state.pendingImageEdit = null;
 
-    var cropOpts = info.coupleUpload ? { aspectRatio: 4 / 3 } : {};
-    showCropModal(file, cropOpts).then(function(croppedBlob) {
+    var cropOptions = info.coupleUpload ? { aspectRatio: 4 / 3 } : {};
+    showCropModal(file, cropOptions).then(function (croppedBlob) {
         if (!croppedBlob) return;
-        var croppedFile = new File([croppedBlob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
+        var croppedFile = new File([croppedBlob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+            type: 'image/jpeg'
+        });
         if (info.coupleUpload) {
             uploadCoupleImage(info.personId, info.spouseId, croppedFile);
         } else {
-            uploadNewImage(info.section, info.personId, croppedFile);
+            uploadPersonImage(info.section, info.personId, croppedFile);
         }
     });
 }
 
-function triggerCoupleImageUpload(personId, spouseId) {
-    dashboardState.pendingImageEdit = { coupleUpload: true, personId: personId, spouseId: spouseId };
-    var fileInput = document.getElementById("imageUploadInput");
-    if (fileInput) {
-        fileInput.value = "";
-        fileInput.click();
+function buildLookupFormData() {
+    var payload = getLookupPayload();
+    var formData = new FormData();
+    formData.append('title', payload.title);
+    formData.append('family_search_id', payload.family_search_id);
+    formData.append('user_scope_id', payload.user_scope_id);
+    formData.append('context_id', payload.context_id);
+    return formData;
+}
+
+async function uploadPersonImage(section, personId, file) {
+    var syncChoice = promptFsSyncForImage();
+    var formData = buildLookupFormData();
+    formData.append('json_type', SECTION_TO_JSON_TYPE[section]);
+    formData.append('individual_id', personId);
+    formData.append('image', file);
+
+    if (syncChoice) {
+        formData.append('sync_to_familysearch', 'true');
+        if (syncChoice === 'portrait') formData.append('set_as_portrait', 'true');
+    }
+
+    try {
+        var result = await window.FsAuth.postFormData('/people/tree/update-image', formData);
+        var person = state.treeData[section] && state.treeData[section][personId];
+        if (result.updated_image_path && person) {
+            person.image = result.updated_image_path;
+        }
+        renderDataList();
+        setEditorMessage('Photo updated. Regenerate the chart to see it on the proof.');
+    } catch (error) {
+        setEditorMessage('Photo upload failed: ' + error.message, true);
     }
 }
 
 async function uploadCoupleImage(personId, spouseId, file) {
-    var formData = new FormData();
-    var payload = getLookupPayload();
-    formData.append("title", payload.title);
-    formData.append("family_search_id", payload.family_search_id);
-    formData.append("user_scope_id", payload.user_scope_id);
-    formData.append("context_id", payload.context_id);
-    formData.append("person_id", personId);
-    formData.append("spouse_id", spouseId);
-    formData.append("image", file);
+    var formData = buildLookupFormData();
+    formData.append('person_id', personId);
+    formData.append('spouse_id', spouseId);
+    formData.append('image', file);
 
     try {
-        var response = await fetch(TREE_BACKEND_BASE_URL + "/people/tree/update-couple-image", {
-            method: "POST",
-            body: formData
-        });
-        if (!response.ok) {
-            var errText = await response.text();
-            throw new Error(errText || "Couple image upload failed");
-        }
-        var result = await response.json();
-        if (result.updated_couple_image_path) {
-            var descData = dashboardState.treeData.desc;
-            if (descData) {
-                if (descData[personId]) descData[personId].couple_image = result.updated_couple_image_path;
-                if (descData[spouseId]) descData[spouseId].couple_image = result.updated_couple_image_path;
-            }
+        var result = await window.FsAuth.postFormData('/people/tree/update-couple-image', formData);
+        var desc = state.treeData.desc;
+        if (result.updated_couple_image_path && desc) {
+            if (desc[personId]) desc[personId].couple_image = result.updated_couple_image_path;
+            if (desc[spouseId]) desc[spouseId].couple_image = result.updated_couple_image_path;
         }
         renderDataList();
-        setDashboardMessage("Updated couple photo.", false);
+        setEditorMessage('Couple photo updated. Regenerate the chart to see it on the proof.');
     } catch (error) {
-        console.error("Error uploading couple image:", error);
-        alert("Failed to upload couple photo. Please try again.");
+        setEditorMessage('Couple photo upload failed: ' + error.message, true);
     }
 }
 
-function loadCoupleImage(imgElementId, coupleImagePath) {
-    if (!coupleImagePath) return;
-    var imageName = coupleImagePath.split("/").pop();
-    if (!imageName) return;
-    var payload = getLookupPayload();
-    payload.image_name = imageName;
-
-    fetch(TREE_BACKEND_BASE_URL + "/people/tree/image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-    })
-        .then(function(response) {
-            if (!response.ok) throw new Error("Couple image not found");
-            return response.blob();
-        })
-        .then(function(blob) {
-            var img = document.getElementById(imgElementId);
-            var placeholder = document.getElementById(imgElementId + "_placeholder");
-            if (img) {
-                img.src = URL.createObjectURL(blob);
-                img.style.display = "";
-                if (placeholder) placeholder.style.display = "none";
-            }
-        })
-        .catch(function() {
-            var placeholder = document.getElementById(imgElementId + "_placeholder");
-            if (placeholder) {
-                placeholder.innerHTML = '<i class="fas fa-image"></i> Upload Couple Photo';
-                placeholder.style.borderColor = "var(--light-black)";
-                placeholder.style.color = "var(--text-dark-gray)";
-            }
-        });
+function promptFsSyncForImage() {
+    if (!confirm('Also add this photo to FamilySearch?')) return null;
+    return confirm('Set it as their FamilySearch profile picture?\n\nOK = profile picture, Cancel = upload only')
+        ? 'portrait'
+        : 'upload';
 }
 
 function loadPersonImage(imgElementId, imageName) {
@@ -890,243 +1053,488 @@ function loadPersonImage(imgElementId, imageName) {
     var payload = getLookupPayload();
     payload.image_name = imageName;
 
-    fetch(TREE_BACKEND_BASE_URL + "/people/tree/image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-    })
-        .then(function(response) {
-            if (!response.ok) throw new Error("Image not found");
-            return response.blob();
-        })
-        .then(function(blob) {
+    window.FsAuth.postForBlob('/people/tree/image', payload)
+        .then(function (blob) {
             var img = document.getElementById(imgElementId);
             if (img) {
                 img.src = URL.createObjectURL(blob);
-                img.style.display = "";
+                img.style.display = '';
             }
         })
-        .catch(function() {
+        .catch(function () {
             var img = document.getElementById(imgElementId);
-            if (img) img.style.display = "none";
+            if (img) img.style.display = 'none';
         });
 }
 
-async function selectAsStartingPerson(personId) {
-    if (!personId) return;
-    var alreadyListed = contextOptionExists(personId);
-    var isCurrent = dashboardState.selectedContextId === personId;
+function loadCoupleImage(imgElementId, coupleImagePath) {
+    var imageName = getImageName(coupleImagePath);
+    if (!imageName) return;
+    var payload = getLookupPayload();
+    payload.image_name = imageName;
 
-    var select = document.getElementById("contextSelect");
-    ensureContextOption(personId);
-    if (select) {
-        select.value = personId;
+    window.FsAuth.postForBlob('/people/tree/image', payload)
+        .then(function (blob) {
+            var img = document.getElementById(imgElementId);
+            var placeholder = document.getElementById(imgElementId + '_placeholder');
+            if (img) {
+                img.src = URL.createObjectURL(blob);
+                img.style.display = '';
+                if (placeholder) placeholder.style.display = 'none';
+            }
+        })
+        .catch(function () {
+            var placeholder = document.getElementById(imgElementId + '_placeholder');
+            if (placeholder) {
+                placeholder.innerHTML = '<i class="fas fa-image"></i> Upload Couple Photo';
+            }
+        });
+}
+
+async function refreshPerson(section, personId) {
+    if (!confirm("Re-fetch this person from FamilySearch? Unsynced local edits will be overwritten.")) return;
+
+    var payload = getLookupPayload();
+    payload.json_type = SECTION_TO_JSON_TYPE[section] || section;
+    payload.individual_id = personId;
+
+    try {
+        var response = await window.FsAuth.postJson('/people/tree/refresh-person', payload);
+        if (response && response.updated) {
+            if (!state.treeData[section]) state.treeData[section] = {};
+            state.treeData[section][personId] = response.updated;
+            if (response.updated.name) learnPersonName(personId, formatName(response.updated.name));
+        }
+        renderDataList();
+        setEditorMessage('Refreshed from FamilySearch.');
+    } catch (error) {
+        setEditorMessage('Refresh failed: ' + error.message, true);
     }
+}
 
-    dashboardState.selectedContextId = personId;
-    updateSelectedRootDisplay();
+async function submitAddPerson() {
+    var getValue = function (id) {
+        var el = document.getElementById(id);
+        return el ? (el.value || '').trim() : '';
+    };
 
-    if (isCurrent && hasLoadedContextData(personId)) {
-        setDashboardMessage("Already using this starting person. Loaded cached data.", false);
+    var mode = getValue('addPersonMode');
+    var personId = getValue('addPersonId');
+    var errorEl = document.getElementById('addPersonError');
+
+    var firstName = '';
+    var lastName = '';
+    var birth = '';
+    var gender = 'Male';
+
+    if (mode === 'new') {
+        firstName = getValue('addPersonFirstName');
+        lastName = getValue('addPersonLastName');
+        gender = getValue('addPersonGender') || 'Male';
+        birth = getValue('addPersonBirth');
+        if (!firstName) {
+            if (errorEl) {
+                errorEl.textContent = 'First name is required.';
+                errorEl.style.display = '';
+            }
+            return;
+        }
+    } else if (!personId) {
+        if (errorEl) {
+            errorEl.textContent = 'No person selected.';
+            errorEl.style.display = '';
+        }
         return;
     }
 
-    if (alreadyListed) {
-        setDashboardMessage("Loaded cached data for selected starting person.", false);
+    var includeSpouse = false;
+    var spouseConfirm = document.getElementById('addPersonSpouseConfirm');
+    if (spouseConfirm && spouseConfirm.style.display !== 'none') {
+        var checkbox = document.getElementById('addPersonIncludeSpouse');
+        includeSpouse = Boolean(checkbox && checkbox.checked);
+    }
+
+    var createOnFs = mode === 'new' && confirm('Also create this person on FamilySearch?\n\nOK = create on FamilySearch, Cancel = add to this chart only');
+
+    var payload = getLookupPayload();
+    payload.person_id = personId;
+    payload.first_name = firstName;
+    payload.last_name = lastName;
+    payload.gender = gender;
+    payload.birth = birth;
+    payload.relationship = getValue('addPersonRelationship');
+    payload.relative_id = getValue('addPersonRelativeId');
+    payload.data_type = getValue('addPersonSection');
+    payload.mode = mode;
+    payload.include_spouse = includeSpouse;
+    payload.create_on_fs = createOnFs;
+
+    try {
+        var result = await window.FsAuth.postJson('/people/tree/add-person', payload);
+        var modalEl = document.getElementById('addPersonModal');
+        var modal = modalEl && bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+        if (result.person_name) learnPersonName(result.person_id, result.person_name);
         await loadTreeData();
-        return;
+    } catch (error) {
+        if (errorEl) {
+            errorEl.textContent = error.message;
+            errorEl.style.display = '';
+        }
     }
-
-    await fetchSelectedContextData();
 }
 
-
-function renderDataList() {
-    var container = document.getElementById("dataListContainer");
-    if (!container) return;
-
-    var data = dashboardState.treeData;
-    if (!data.kids && !data.husb && !data.wife && !data.sibs && !data.desc) {
-        container.innerHTML = '<div class="text-center py-5"><p style="color: var(--text-dark-gray);">No cached data found for this context yet.</p></div>';
-        return;
-    }
-
-    var html = window.TreeRenderer.renderAllSections(data);
-    container.innerHTML = html || '<div class="text-center py-5"><p style="color: var(--text-dark-gray);">No visible people in this context.</p></div>';
-}
-
-function wireControls() {
-    var contextSelect = document.getElementById("contextSelect");
-    if (contextSelect) {
-        contextSelect.addEventListener("change", function(e) {
-            dashboardState.selectedContextId = e.target.value || null;
-            updateSelectedRootDisplay();
-            loadTreeData();
-            loadChartBuilds();
-        });
-    }
-
-    var refreshContextsBtn = document.getElementById("refreshContextsBtn");
-    if (refreshContextsBtn) {
-        refreshContextsBtn.addEventListener("click", function() {
-            refreshContexts(dashboardState.selectedContextId);
-        });
-    }
-
-    var refetchAllBtn = document.getElementById("refetchAllBtn");
-    if (refetchAllBtn) {
-        refetchAllBtn.addEventListener("click", function() {
-            if (!confirm("This will re-fetch all data from FamilySearch and may overwrite any unsynced local edits. Continue?")) return;
-            refetchAllBtn.disabled = true;
-            var icon = refetchAllBtn.querySelector("i");
-            if (icon) { icon.className = "fas fa-spinner fa-spin me-1"; }
-            fetchSelectedContextData().finally(function() {
-                refetchAllBtn.disabled = false;
-                if (icon) { icon.className = "fas fa-cloud-arrow-down me-1"; }
+// Contract consumed by tree-renderer.js.
+window.TreeRendererConfig = {
+    getState: function () {
+        return {
+            expandedPersonId: state.expandedPersonId,
+            editingField: state.editingField,
+            treeData: state.treeData
+        };
+    },
+    togglePersonDetail: function (key) {
+        state.expandedPersonId = state.expandedPersonId === key ? null : key;
+        state.editingField = null;
+        renderDataList();
+    },
+    startEdit: startEdit,
+    cancelEdit: cancelEdit,
+    saveFieldEdit: saveFieldEdit,
+    triggerImageUpload: triggerImageUpload,
+    triggerCoupleImageUpload: triggerCoupleImageUpload,
+    loadPersonImage: loadPersonImage,
+    loadCoupleImage: loadCoupleImage,
+    getPersonName: function (personId) {
+        var sections = ['husb', 'wife', 'kids', 'sibs', 'desc'];
+        for (var i = 0; i < sections.length; i++) {
+            var data = state.treeData[sections[i]];
+            if (data && data[personId] && data[personId].name) {
+                return formatName(data[personId].name);
+            }
+        }
+        return state.personNames[personId] || '';
+    },
+    // Re-centering the chart is now a new-chart decision, not an in-place one,
+    // so this points the customer at the wizard instead of silently swapping
+    // the tree under an existing order.
+    selectAsStartingPerson: function (personId) {
+        if (!confirm('Start a new chart centered on this person?')) return;
+        startWizard();
+        state.wizard.startingPersonId = personId;
+        var select = document.getElementById('wizardStartingPerson');
+        if (select) select.value = personId;
+    },
+    addPerson: function (relationship, section, relativeId) {
+        window.TreeRenderer.showAddPersonModal(relationship, section, relativeId);
+    },
+    lookupFsPerson: function (fsId, callback) {
+        var apiBase = window.FsAuth.FS_API_BASE_URL + '/platform/tree';
+        fetch(apiBase + '/persons/' + fsId, {
+            headers: {
+                Accept: 'application/x-gedcomx-v1+json',
+                Authorization: 'Bearer ' + window.FsAuth.getAccessToken()
+            }
+        })
+            .then(function (response) {
+                return response.ok ? response.json() : null;
+            })
+            .then(function (data) {
+                var person = data && data.persons && data.persons[0];
+                if (!person) {
+                    callback(null);
+                    return;
+                }
+                var display = person.display || {};
+                callback({
+                    name: display.name || 'Unknown',
+                    birth: display.birthDate || '',
+                    death: display.deathDate || '',
+                    gender: display.gender || ''
+                });
+            })
+            .catch(function () {
+                callback(null);
             });
+    },
+    submitAddPerson: submitAddPerson,
+    refreshPerson: refreshPerson
+};
+
+/* ------------------------------------------------------------------ wiring */
+
+function wireWizardControls() {
+    document.querySelectorAll('[data-nav="charts"]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            showView('charts');
+        });
+    });
+
+    document.querySelectorAll('[data-chart-filter]').forEach(function (button) {
+        button.addEventListener('click', handleChartFilterClick);
+    });
+
+    var newChartBtn = document.getElementById('newChartBtn');
+    if (newChartBtn) newChartBtn.addEventListener('click', startWizard);
+
+    document.querySelectorAll('.wizard-step').forEach(function (stepTab) {
+        stepTab.addEventListener('click', function () {
+            var target = Number(stepTab.getAttribute('data-step-label'));
+            if (!state.wizard || target >= state.wizard.step) return;
+            goToStep(target);
+        });
+    });
+
+    document.querySelectorAll('[data-wizard-next]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            var next = Number(button.getAttribute('data-wizard-next'));
+            var problem = validateStep(next - 1);
+            if (problem) {
+                setGlobalMessage(problem, 'error');
+                return;
+            }
+            setGlobalMessage('');
+            goToStep(next);
+        });
+    });
+
+    document.querySelectorAll('[data-wizard-back]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            goToStep(Number(button.getAttribute('data-wizard-back')));
+        });
+    });
+
+    document.querySelectorAll('[data-source]').forEach(function (tile) {
+        tile.addEventListener('click', function () {
+            var source = tile.getAttribute('data-source');
+            state.wizard.source = source;
+            document.querySelectorAll('[data-source]').forEach(function (other) {
+                other.classList.toggle('selected', other === tile);
+            });
+            var fsPanel = document.getElementById('familysearchSourcePanel');
+            var gedcomPanel = document.getElementById('gedcomSourcePanel');
+            if (fsPanel) fsPanel.style.display = source === 'familysearch' ? '' : 'none';
+            if (gedcomPanel) gedcomPanel.style.display = source === 'gedcom' ? '' : 'none';
+            renderWizardExample();
+        });
+    });
+
+    document.querySelectorAll('[data-tree-type]').forEach(function (tile) {
+        tile.addEventListener('click', function () {
+            state.wizard.treeType = tile.getAttribute('data-tree-type');
+            document.querySelectorAll('[data-tree-type]').forEach(function (other) {
+                other.classList.toggle('selected', other === tile);
+            });
+            syncGenerationOptions();
+            renderWizardExample();
+        });
+    });
+
+    document.querySelectorAll('#wizardThemeSelection .theme-selector').forEach(function (tile) {
+        tile.addEventListener('click', function () {
+            state.wizard.theme = tile.getAttribute('data-theme');
+            document.querySelectorAll('#wizardThemeSelection .theme-selector').forEach(function (other) {
+                other.classList.toggle('selected', other === tile);
+            });
+            renderWizardExample();
+        });
+    });
+
+    var startingSelect = document.getElementById('wizardStartingPerson');
+    if (startingSelect) {
+        startingSelect.addEventListener('change', function () {
+            var wrapper = document.getElementById('wizardManualIdWrapper');
+            if (this.value === '__other__') {
+                if (wrapper) wrapper.style.display = '';
+                state.wizard.startingPersonId = '';
+            } else {
+                if (wrapper) wrapper.style.display = 'none';
+                state.wizard.startingPersonId = this.value;
+            }
+            renderWizardExample();
         });
     }
+
+    var manualId = document.getElementById('wizardManualId');
+    if (manualId) {
+        manualId.addEventListener('input', function () {
+            state.wizard.startingPersonId = this.value.trim().toUpperCase();
+            renderWizardExample();
+        });
+    }
+
+    var generationsSelect = document.getElementById('wizardGenerations');
+    if (generationsSelect) {
+        generationsSelect.addEventListener('change', function () {
+            state.wizard.generations = parseInt(this.value, 10);
+            renderWizardExample();
+        });
+    }
+
+    var familyName = document.getElementById('wizardFamilyName');
+    if (familyName) {
+        familyName.addEventListener('input', function () {
+            state.wizard.familyName = this.value;
+        });
+    }
+
+    var gedcomFile = document.getElementById('wizardGedcomFile');
+    if (gedcomFile) {
+        gedcomFile.addEventListener('change', function () {
+            state.wizard.gedcomFile = this.files && this.files[0] ? this.files[0] : null;
+        });
+    }
+
+    var rootPointer = document.getElementById('wizardRootPointer');
+    if (rootPointer) {
+        rootPointer.addEventListener('input', function () {
+            state.wizard.rootPointer = this.value.trim();
+        });
+    }
+
+    var generateBtn = document.getElementById('wizardGenerateBtn');
+    if (generateBtn) generateBtn.addEventListener('click', submitWizard);
 }
+
+/**
+ * Handle a return from Stripe, and deep links out of proof emails.
+ *
+ * The webhook is what actually unlocks the chart, so on a successful return we
+ * reload orders rather than trusting the redirect.
+ */
+async function handleUrlIntent() {
+    var params = new URLSearchParams(window.location.search);
+    var payment = params.get('payment');
+    var orderId = params.get('order');
+    var action = params.get('action');
+
+    if (payment === 'success') {
+        state.chartFilter = 'purchased';
+        setGlobalMessage('Payment received. Unlocking your print files...', 'success');
+        window.history.replaceState({}, document.title, window.location.pathname);
+        // The webhook may land a moment after the browser redirect.
+        for (var attempt = 0; attempt < 5; attempt++) {
+            await loadOrders();
+            renderCharts();
+            var unlocked = state.orders.some(function (order) {
+                return order.is_unlocked;
+            });
+            if (unlocked) break;
+            await new Promise(function (resolve) {
+                setTimeout(resolve, 2000);
+            });
+        }
+        setGlobalMessage('Payment complete. Your print-ready file is available below.', 'success');
+        renderCharts();
+        return;
+    }
+
+    if (payment === 'cancelled') {
+        setGlobalMessage('Checkout cancelled. Your proof is still here whenever you are ready.', 'info');
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+    }
+
+    if (orderId) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        var order = findOrder(orderId);
+        if (!order) return;
+        if (action === 'buy' && !order.is_unlocked) {
+            buyChart(orderId);
+        } else {
+            openEditor(orderId);
+        }
+    }
+}
+
+/**
+ * Open the wizard if the customer arrived by clicking a source on the landing
+ * page. Without this they sign in and land on an empty grid, having already
+ * told us what they wanted to do.
+ */
+function openWizardFromLandingIntent() {
+    var source = null;
+    try {
+        source = sessionStorage.getItem('pending_chart_source');
+        sessionStorage.removeItem('pending_chart_source');
+    } catch (error) {
+        return;
+    }
+    if (!source) return;
+
+    startWizard();
+    var tile = document.querySelector('[data-source="' + source + '"]');
+    if (tile) tile.click();
+}
+
 
 async function bootstrapDashboard() {
-    var accessToken = getCookie("fs_access_token");
+    var accessToken = window.FsAuth.getAccessToken();
     if (!accessToken) {
-        window.location.href = "/login";
+        window.location.href = '/login';
         return;
     }
 
-    dashboardState.accessToken = accessToken;
+    var session = await window.FsAuth.resolveCurrentPerson(accessToken);
 
-    var person = await fetchCurrentPerson(accessToken);
-    if (!person) {
-        setDashboardMessage("Failed to load your FamilySearch profile.", true);
+    if (!session.person && !session.expired) {
+        // FamilySearch is rate-limiting or down. The token is probably fine, so
+        // keep it and let the customer retry rather than forcing a fresh OAuth.
+        setGlobalMessage(
+            'FamilySearch is not responding right now. Refresh in a moment to try again.',
+            'error'
+        );
         return;
     }
 
-    dashboardState.currentPerson = person;
-    dashboardState.userScopeId = makePersonSlug(person.name, person.id);
+    if (!session.person) {
+        // Clear the dead token before bouncing to /login. The login page only
+        // checks that a token cookie EXISTS, so leaving a rejected one in place
+        // sends the browser straight back here and loops forever.
+        window.FsAuth.deleteCookie('fs_access_token');
+        setGlobalMessage('Your FamilySearch session has expired. Please sign in again.', 'error');
+        setTimeout(function () {
+            window.location.href = '/login';
+        }, 2500);
+        return;
+    }
+
+    var person = session.person;
+
+    state.person = person;
     learnPersonName(person.id, person.name);
 
-    var ADMIN_IDS = ["KWN5-J7M", "KWXJ-J3Z"];
-    var adminLink = document.getElementById("adminLink");
-    if (adminLink && ADMIN_IDS.indexOf(person.id) !== -1) {
-        adminLink.style.display = "";
+    document.getElementById('userDisplayName').textContent = person.name;
+    document.getElementById('userDisplayId').textContent = person.id;
+
+    var avatar = document.getElementById('userAvatar');
+    if (avatar) {
+        avatar.textContent =
+            person.name
+                .split(' ')
+                .filter(Boolean)
+                .slice(0, 2)
+                .map(function (part) {
+                    return part[0] ? part[0].toUpperCase() : '';
+                })
+                .join('') || 'U';
     }
 
-    var lastName = person.name.split(" ");
-    dashboardState.lookupTitle = (lastName[lastName.length - 1] || "User") + " Family";
+    wireWizardControls();
+    showView('charts');
 
-    var userNameEl = document.getElementById("userDisplayName");
-    var userIdEl = document.getElementById("userDisplayId");
-    if (userNameEl) userNameEl.textContent = person.name;
-    if (userIdEl) userIdEl.textContent = person.id;
+    await loadOrders();
+    await handleUrlIntent();
+    openWizardFromLandingIntent();
 
-    var avatarEl = document.getElementById("userAvatar");
-    if (avatarEl) {
-        var initials = person.name
-            .split(" ")
-            .filter(Boolean)
-            .slice(0, 2)
-            .map(function(part) { return part[0] ? part[0].toUpperCase() : ""; })
-            .join("");
-        avatarEl.textContent = initials || "U";
+    // The admin link is a convenience only; /admin is guarded server-side.
+    try {
+        await window.FsAuth.postJson('/orders/admin/list', {});
+        var adminLink = document.getElementById('adminLink');
+        if (adminLink) adminLink.style.display = '';
+    } catch (error) {
+        // Not an admin, which is the normal case.
     }
-
-    wireControls();
-
-    var contexts = await refreshContexts(person.id);
-    if (!contexts.length) {
-        await initializeCache();
-    } else {
-        await loadTreeData();
-        setDashboardMessage("Loaded your existing contexts.", false);
-    }
-
-    await loadChartBuilds();
 }
 
-function openBuildTreeDrawer() {
-    if (!dashboardState.currentPerson) {
-        alert("Please log in first.");
-        return;
-    }
-
-    // Auto-populate form fields
-    var contactName = document.getElementById("contactName");
-    var contactEmail = document.getElementById("contactEmail");
-    var familyName = document.getElementById("familyName");
-    var startingPerson = document.getElementById("startingPerson");
-    var startingPersonSelect = document.getElementById("startingPersonSelect");
-
-    var rootPersonId = extractPersonIdFromSlug(dashboardState.selectedContextId || "") || (dashboardState.currentPerson && dashboardState.currentPerson.id) || "";
-    var rootPersonName = dashboardState.personNames[rootPersonId] || (dashboardState.currentPerson && dashboardState.currentPerson.name) || "";
-
-    if (contactName && dashboardState.currentPerson) contactName.value = dashboardState.currentPerson.name;
-    if (familyName) {
-        var parts = rootPersonName.split(" ");
-        familyName.value = parts[parts.length - 1] || "";
-    }
-    if (startingPerson) startingPerson.value = rootPersonId;
-
-    // Populate starting person dropdown from known people
-    if (startingPersonSelect) {
-        startingPersonSelect.innerHTML = "";
-        var people = [];
-        if (dashboardState.currentPerson) {
-            people.push({ id: dashboardState.currentPerson.id, name: dashboardState.currentPerson.name });
-        }
-        Object.keys(dashboardState.personNames).forEach(function(pid) {
-            if (pid !== dashboardState.currentPerson.id) {
-                people.push({ id: pid, name: dashboardState.personNames[pid] });
-            }
-        });
-        people.forEach(function(p) {
-            var opt = document.createElement("option");
-            opt.value = p.id;
-            opt.textContent = p.name + " (" + p.id + ")";
-            startingPersonSelect.appendChild(opt);
-        });
-        var otherOpt = document.createElement("option");
-        otherOpt.value = "__other__";
-        otherOpt.textContent = "Other (enter ID manually)";
-        startingPersonSelect.appendChild(otherOpt);
-
-        startingPersonSelect.value = rootPersonId || (dashboardState.currentPerson || {}).id || "";
-        startingPersonSelect.onchange = function() {
-            var manualWrapper = document.getElementById("manualIdWrapper");
-            var manualInput = document.getElementById("startingPersonManual");
-            if (this.value === "__other__") {
-                if (manualWrapper) manualWrapper.style.display = "";
-                if (manualInput) manualInput.focus();
-            } else {
-                if (manualWrapper) manualWrapper.style.display = "none";
-                if (startingPerson) startingPerson.value = this.value;
-            }
-        };
-    }
-
-    // Tree type change -> update generations
-    var treeType = document.getElementById("treeType");
-    var generations = document.getElementById("generations");
-    if (treeType && generations) {
-        treeType.onchange = function() {
-            if (this.value === "descendant") {
-                generations.innerHTML = '<option value="4" selected>4 Generations</option><option value="3">3 Generations</option>';
-            } else {
-                generations.innerHTML = '<option value="5" selected>5 Generations</option><option value="4">4 Generations</option>';
-            }
-            if (typeof updatePriceDisplay === "function") setTimeout(updatePriceDisplay, 50);
-        };
-    }
-
-    // Set access token for stripe-integration form submission
-    window.accessToken = dashboardState.accessToken;
-
-    // Open the drawer
-    var drawer = new bootstrap.Offcanvas(document.getElementById("buildTreeDrawer"));
-    drawer.show();
-
-    if (typeof updatePriceDisplay === "function") setTimeout(updatePriceDisplay, 100);
-}
-
-document.addEventListener("DOMContentLoaded", bootstrapDashboard);
+document.addEventListener('DOMContentLoaded', bootstrapDashboard);

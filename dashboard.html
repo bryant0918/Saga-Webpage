@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Family Saga - Dashboard</title>
+    <title>Family Saga - My Charts</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="custom.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
-    <meta name="description" content="Family Saga dashboard for managing your own cached tree data and chart builds.">
+    <meta name="description" content="Create, edit, and purchase your Family Saga charts.">
     <link rel="icon" type="image/png" href="assets/saga.png">
     <style>
         .user-profile-badge {
@@ -33,15 +33,135 @@
             font-weight: 600;
             font-size: 0.85rem;
         }
-        .person-list-item .actions .btn {
-            --bs-btn-padding-y: .15rem;
-            --bs-btn-padding-x: .45rem;
+        .chart-card {
+            border: 1px solid var(--light-black);
+            border-radius: 10px;
+            background-color: var(--primary-black);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            transition: border-color 0.15s ease;
         }
-        .sticky-card {
+        .chart-card:hover { border-color: rgba(212,175,55,0.5); }
+        .chart-card-preview {
+            aspect-ratio: 3 / 2;
+            background-color: var(--deep-black);
+            border-radius: 9px 9px 0 0;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .chart-card-preview img { width: 100%; height: 100%; object-fit: cover; }
+        .chart-card-body { padding: 16px; flex: 1 1 auto; display: flex; flex-direction: column; }
+        .chart-card-actions { margin-top: auto; padding-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .status-badge {
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 20px;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+        .status-building { background: rgba(212,175,55,0.15); color: var(--gold-primary); }
+        .status-proof    { background: rgba(96,165,250,0.15); color: #93c5fd; }
+        .status-paid     { background: rgba(52,211,153,0.15); color: #6ee7b7; }
+        .status-failed   { background: rgba(248,113,113,0.15); color: #fca5a5; }
+        .wizard-steps { display: flex; gap: 8px; margin-bottom: 28px; flex-wrap: wrap; }
+        .wizard-step {
+            flex: 1 1 140px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--light-black);
+            color: var(--text-dark-gray);
+            font-size: 0.88rem;
+        }
+        .wizard-step.active {
+            border-color: var(--gold-primary);
+            color: var(--gold-primary);
+            background: rgba(212,175,55,0.06);
+        }
+        .wizard-step.done { border-color: rgba(52,211,153,0.5); color: #6ee7b7; }
+        .theme-selector { cursor: pointer; padding: 8px; border: 2px solid var(--light-black); border-radius: 8px; }
+        .theme-selector.selected { border-color: var(--gold-primary); }
+        .option-tile {
+            cursor: pointer;
+            border: 2px solid var(--light-black);
+            border-radius: 8px;
+            padding: 16px;
+            height: 100%;
+            transition: border-color 0.15s ease;
+        }
+        .option-tile:hover { border-color: rgba(212,175,55,0.5); }
+        .option-tile.selected { border-color: var(--gold-primary); background: rgba(212,175,55,0.06); }
+        .person-list-item .actions .btn { --bs-btn-padding-y: .15rem; --bs-btn-padding-x: .45rem; }
+        .wizard-step { cursor: default; }
+        .wizard-step.done { cursor: pointer; }
+        .wizard-preview-shell {
             position: sticky;
-            top: 12px;
-            max-height: calc(100vh - 24px);
-            overflow-y: auto;
+            top: 18px;
+            padding: 14px;
+            border: 1px solid rgba(212,175,55,0.22);
+            border-radius: 8px;
+            background: var(--deep-black);
+        }
+        .wizard-preview-title {
+            color: var(--text-gray);
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .wizard-example-chart {
+            position: relative;
+            aspect-ratio: 3 / 2;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #121212;
+        }
+        .wizard-example-chart img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #121212;
+        }
+        .wizard-start-arrow {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: none;
+        }
+        .wizard-example-chart.show-arrow .wizard-start-arrow {
+            display: block;
+        }
+        .wizard-example-chart.is-ancestor .arrow-descendant,
+        .wizard-example-chart.is-ancestor .arrow-label-descendant,
+        .wizard-example-chart.is-descendant .arrow-ancestor,
+        .wizard-example-chart.is-descendant .arrow-label-ancestor {
+            display: none;
+        }
+        .starting-guidance {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            margin-top: 14px;
+            padding: 12px;
+            border-radius: 8px;
+            background: rgba(212,175,55,0.07);
+            color: var(--text-gray);
+        }
+        .starting-guidance i {
+            color: #ff5a5f;
+            margin-top: 2px;
+        }
+        @media (max-width: 991.98px) {
+            .wizard-preview-shell {
+                position: static;
+                margin-top: 18px;
+            }
         }
     </style>
 </head>
@@ -57,9 +177,7 @@
                     <i class="fas fa-user-shield me-1"></i>Admin
                 </a>
                 <div class="user-profile-badge">
-                    <div class="user-avatar" id="userAvatar">
-                        <i class="fas fa-user" style="font-size: 0.75rem;"></i>
-                    </div>
+                    <div class="user-avatar" id="userAvatar"><i class="fas fa-user" style="font-size: 0.75rem;"></i></div>
                     <div>
                         <div id="userDisplayName" style="color: var(--text-gray); font-size: 0.85rem; font-weight: 500; line-height: 1.2;">Loading...</div>
                         <div id="userDisplayId" style="color: var(--text-dark-gray); font-size: 0.75rem; line-height: 1.2;"></div>
@@ -75,64 +193,274 @@
     <input type="file" id="imageUploadInput" accept="image/jpeg,image/png,image/webp" style="display: none;" onchange="handleImageFileSelected(this)">
 
     <div class="container py-4">
-        <div class="alert" style="background: linear-gradient(135deg, #13100a 0%, #1f1708 100%); border: 1px solid rgba(212,175,55,0.4); color: var(--text-gray);">
-            <div class="d-flex align-items-start">
-                <i class="fas fa-database me-3 mt-1" style="color: var(--gold-primary);"></i>
+        <div id="globalMessage" class="alert d-none" role="status"></div>
+
+        <!-- ============ VIEW: My Charts ============ -->
+        <section id="chartsView">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
                 <div>
-                    <strong style="color: var(--gold-primary);">Your Tree Data Workspace</strong>
-                    <div style="font-size: 0.92rem;">This dashboard uses your own scoped cache. You can switch starting person, fetch more generations, and edit cached data without touching FamilySearch originals.</div>
+                    <h2 class="mb-1" style="color: var(--gold-primary); font-family: 'Playfair Display', serif;">My Charts</h2>
+                    <p class="mb-0" style="color: var(--text-dark-gray);">Create a chart, refine it as much as you like, then buy the print files.</p>
                 </div>
-            </div>
-        </div>
-
-        <div class="row g-4">
-            <div class="col-lg-4">
-              <div class="sticky-card">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h6 style="color: var(--gold-primary);" class="mb-0"><i class="fas fa-file-pdf me-2"></i>Chart Requests</h6>
-                            <button class="btn btn-sm btn-outline-warning" onclick="openBuildTreeDrawer()">
-                                <i class="fas fa-hammer me-1"></i>Build Tree
-                            </button>
-                        </div>
-                        <div id="chartBuildsList" class="small" style="color: var(--text-dark-gray);">
-                            Loading...
-                        </div>
-                    </div>
-                </div>
-              </div>
+                <button class="btn btn-lg" id="newChartBtn" style="background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%); color: var(--deep-black); font-weight: 600; border: none;">
+                    <i class="fas fa-plus me-2"></i>New Chart
+                </button>
             </div>
 
-            <div class="col-lg-8">
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                            <div class="d-flex align-items-center gap-3 flex-wrap">
-                                <h5 class="mb-0" style="color: var(--gold-primary);"><i class="fas fa-users me-2"></i>People</h5>
-                                <select id="contextSelect" class="form-select form-select-sm" style="width: auto; min-width: 200px;">
-                                    <option value="" selected disabled>Loading...</option>
-                                </select>
-                                <button class="btn btn-sm btn-outline-secondary" id="refreshContextsBtn" title="Refresh"><i class="fas fa-rotate"></i></button>
-                                <button class="btn btn-sm btn-outline-warning" id="refetchAllBtn" title="Re-fetch all data from FamilySearch"><i class="fas fa-cloud-arrow-down me-1"></i>Re-fetch from FamilySearch</button>
+            <div class="mb-3">
+                <div class="btn-group btn-group-sm" role="group" aria-label="Chart filter">
+                    <button type="button" class="btn btn-warning active" data-chart-filter="proof">Proofs</button>
+                    <button type="button" class="btn btn-outline-warning" data-chart-filter="purchased">Purchased</button>
+                    <button type="button" class="btn btn-outline-warning" data-chart-filter="archived">Archived</button>
+                </div>
+            </div>
+
+            <div id="chartsGrid" class="row g-4">
+                <div class="col-12 text-center py-5">
+                    <div class="spinner-border text-warning mb-3" role="status"><span class="visually-hidden">Loading...</span></div>
+                    <p style="color: var(--text-dark-gray);">Loading your charts...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ VIEW: New Chart wizard ============ -->
+        <section id="wizardView" style="display:none;">
+            <button class="btn btn-sm btn-outline-secondary mb-3" data-nav="charts">
+                <i class="fas fa-arrow-left me-1"></i>Back to my charts
+            </button>
+
+            <h2 class="mb-1" style="color: var(--gold-primary); font-family: 'Playfair Display', serif;">New Chart</h2>
+            <p style="color: var(--text-dark-gray);">Three quick steps. You will get a proof to review before you pay anything.</p>
+
+            <div class="wizard-steps">
+                <div class="wizard-step" data-step-label="1"><strong>1.</strong> What kind of chart?</div>
+                <div class="wizard-step" data-step-label="2"><strong>2.</strong> Who is it about?</div>
+                <div class="wizard-step" data-step-label="3"><strong>3.</strong> Review &amp; generate</div>
+            </div>
+
+            <!-- Step 1 -->
+            <div class="card wizard-panel" data-step="1">
+                <div class="card-body">
+                    <div class="row g-4 align-items-start">
+                        <div class="col-lg-7">
+                            <h5 class="mb-3" style="color: var(--gold-primary);">What kind of chart?</h5>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <div class="option-tile selected" data-tree-type="ancestor">
+                                        <strong style="color: var(--text-gray);">Ancestor chart</strong>
+                                        <div><small style="color: var(--text-dark-gray);">Parents, grandparents, and back &mdash; the classic pedigree.</small></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="option-tile" data-tree-type="descendant">
+                                        <strong style="color: var(--text-gray);">Descendant chart</strong>
+                                        <div><small style="color: var(--text-dark-gray);">Children, grandchildren, and forward from one couple.</small></div>
+                                    </div>
+                                </div>
                             </div>
-                            <div id="dashboardMessage" class="small" style="color: var(--text-dark-gray);"></div>
-                        </div>
-                        <div class="small mt-2" style="color: var(--text-dark-gray);" id="contextMeta"></div>
-                    </div>
-                </div>
 
-                <div id="dataListContainer" class="mb-4">
-                    <div class="text-center py-5">
-                        <div class="spinner-border text-warning mb-3" role="status"><span class="visually-hidden">Loading...</span></div>
-                        <p style="color: var(--text-dark-gray);">Loading your tree data...</p>
+                            <div class="row g-3">
+                                <div class="col-md-5">
+                                    <label for="wizardGenerations" class="form-label">Generations</label>
+                                    <select class="form-select" id="wizardGenerations"></select>
+                                </div>
+                                <div class="col-md-7">
+                                    <label for="wizardFamilyName" class="form-label">Family name on the chart</label>
+                                    <input type="text" class="form-control" id="wizardFamilyName" placeholder="e.g. Eichelberger">
+                                </div>
+                            </div>
+
+                            <label class="form-label mt-4">Design</label>
+                            <div class="row g-2" id="wizardThemeSelection">
+                                <div class="col-6 col-md-3">
+                                    <div class="theme-selector selected" data-theme="royal-heritage">
+                                        <img src="assets/Eichelberger_black.jpg" alt="Royal Heritage" style="width:100%; height:80px; object-fit:cover; border-radius:6px;" class="mb-1">
+                                        <div class="text-center"><small style="color: var(--gold-primary); font-weight:600;">Royal Heritage</small></div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="theme-selector" data-theme="rustic-roots">
+                                        <img src="assets/Eichelberger_rustic.jpg" alt="Rustic Roots" style="width:100%; height:80px; object-fit:cover; border-radius:6px;" class="mb-1">
+                                        <div class="text-center"><small style="color: var(--gold-primary); font-weight:600;">Rustic Roots</small></div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="theme-selector" data-theme="vintage-botanical">
+                                        <img src="assets/Eichelberger_green.jpg" alt="Vintage Botanical" style="width:100%; height:80px; object-fit:cover; border-radius:6px;" class="mb-1">
+                                        <div class="text-center"><small style="color: var(--gold-primary); font-weight:600;">Vintage Botanical</small></div>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="theme-selector" data-theme="ancestral-stone">
+                                        <img src="assets/Eichelberger_stone.jpg" alt="Ancestral Stone" style="width:100%; height:80px; object-fit:cover; border-radius:6px;" class="mb-1">
+                                        <div class="text-center"><small style="color: var(--gold-primary); font-weight:600;">Ancestral Stone</small></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 text-end">
+                                <button class="btn btn-warning" data-wizard-next="2">Continue<i class="fas fa-arrow-right ms-2"></i></button>
+                            </div>
+                        </div>
+                        <div class="col-lg-5">
+                            <div class="wizard-preview-shell">
+                                <div class="wizard-preview-title">Example preview</div>
+                                <div class="wizard-example-chart" data-example-preview>
+                                    <img alt="Example chart preview">
+                                    <svg class="wizard-start-arrow" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                                        <path class="arrow-ancestor" d="M5 75 H6 L14 75" fill="none" stroke="#e31c23" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        <path class="arrow-ancestor" d="M15 69 L20 75 L15 81 Z" fill="#e31c23"></path>
+                                        <path class="arrow-descendant" d="M20 10 H21 L35 10" fill="none" stroke="#e31c23" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        <path class="arrow-descendant" d="M36 4 L41 10 L36 16 Z" fill="#e31c23"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+
+            <!-- Step 2 -->
+            <div class="card wizard-panel" data-step="2" style="display:none;">
+                <div class="card-body">
+                    <div class="row g-4 align-items-start">
+                        <div class="col-lg-7">
+                            <h5 class="mb-3" style="color: var(--gold-primary);">Who is the center of this chart?</h5>
+
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <div class="option-tile selected" data-source="familysearch">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i class="fas fa-cloud me-2" style="color: var(--gold-primary);"></i>
+                                            <strong style="color: var(--text-gray);">From FamilySearch</strong>
+                                        </div>
+                                        <small style="color: var(--text-dark-gray);">We pull names, dates, and photos straight from your FamilySearch tree.</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="option-tile" data-source="gedcom">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i class="fas fa-file-arrow-up me-2" style="color: var(--gold-primary);"></i>
+                                            <strong style="color: var(--text-gray);">Upload a GEDCOM file</strong>
+                                        </div>
+                                        <small style="color: var(--text-dark-gray);">Exported from Ancestry, RootsMagic, or similar.</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="familysearchSourcePanel">
+                                <label for="wizardStartingPerson" class="form-label">Starting person</label>
+                                <select class="form-select mb-2" id="wizardStartingPerson">
+                                    <option value="" disabled selected>Loading your family...</option>
+                                </select>
+                                <div id="wizardManualIdWrapper" style="display:none;">
+                                    <input type="text" class="form-control" id="wizardManualId" placeholder="FamilySearch ID, e.g. KWQS-BYD">
+                                    <div class="form-text">Find this on a person's FamilySearch profile page.</div>
+                                </div>
+                                <div class="starting-guidance">
+                                    <i class="fas fa-arrow-pointer"></i>
+                                    <div id="startingGuidanceText">Pick the person shown by the red arrow in the example.</div>
+                                </div>
+                            </div>
+
+                            <div id="gedcomSourcePanel" style="display:none;">
+                                <label for="wizardGedcomFile" class="form-label">GEDCOM file</label>
+                                <input type="file" class="form-control mb-2" id="wizardGedcomFile" accept=".ged,.gedcom">
+                                <label for="wizardRootPointer" class="form-label mt-2">Root person pointer</label>
+                                <input type="text" class="form-control" id="wizardRootPointer" placeholder="e.g. @I1@">
+                                <div class="form-text">The individual ID in your GEDCOM the chart should center on.</div>
+                                <div class="starting-guidance">
+                                    <i class="fas fa-arrow-pointer"></i>
+                                    <div>The red arrow shows which GEDCOM person should be used as the root.</div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-between mt-4">
+                                <button class="btn btn-outline-secondary" data-wizard-back="1"><i class="fas fa-arrow-left me-2"></i>Back</button>
+                                <button class="btn btn-warning" data-wizard-next="3">Continue<i class="fas fa-arrow-right ms-2"></i></button>
+                            </div>
+                        </div>
+                        <div class="col-lg-5">
+                            <div class="wizard-preview-shell">
+                                <div class="wizard-preview-title">Starting person guide</div>
+                                <div class="wizard-example-chart" data-example-preview>
+                                    <img alt="Example chart preview">
+                                    <svg class="wizard-start-arrow" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                                        <path class="arrow-ancestor" d="M5 75 H6 L14 75" fill="none" stroke="#e31c23" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        <path class="arrow-ancestor" d="M15 69 L20 75 L15 81 Z" fill="#e31c23"></path>
+                                        <path class="arrow-descendant" d="M20 10 H21 L35 10" fill="none" stroke="#e31c23" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        <path class="arrow-descendant" d="M36 4 L41 10 L36 16 Z" fill="#e31c23"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="card wizard-panel" data-step="3" style="display:none;">
+                <div class="card-body">
+                    <h5 class="mb-3" style="color: var(--gold-primary);">Review</h5>
+                    <div id="wizardSummary" class="mb-4"></div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="wizardContactName" class="form-label">Your name</label>
+                            <input type="text" class="form-control" id="wizardContactName">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="wizardContactEmail" class="form-label">Where should we send the proof? <span style="color: var(--gold-primary);">*</span></label>
+                            <input type="email" class="form-control" id="wizardContactEmail" required>
+                        </div>
+                    </div>
+
+                    <div class="alert mt-4" style="background: rgba(212,175,55,0.07); border: 1px solid rgba(212,175,55,0.35); color: var(--text-gray);">
+                        <i class="fas fa-circle-info me-2" style="color: var(--gold-primary);"></i>
+                        Generating is free. You will get a watermarked proof to review and edit as
+                        many times as you like. You only pay when you want the print-ready file.
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <button class="btn btn-outline-secondary" data-wizard-back="2"><i class="fas fa-arrow-left me-2"></i>Back</button>
+                        <button class="btn btn-lg" id="wizardGenerateBtn" style="background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%); color: var(--deep-black); font-weight: 600; border: none;">
+                            <i class="fas fa-wand-magic-sparkles me-2"></i>Generate my proof
+                        </button>
+                    </div>
+                    <div id="wizardError" class="alert alert-danger d-none mt-3"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ VIEW: Chart detail / people editor ============ -->
+        <section id="editorView" style="display:none;">
+            <button class="btn btn-sm btn-outline-secondary mb-3" data-nav="charts">
+                <i class="fas fa-arrow-left me-1"></i>Back to my charts
+            </button>
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+                        <div>
+                            <h4 class="mb-1" id="editorTitle" style="color: var(--gold-primary); font-family: 'Playfair Display', serif;"></h4>
+                            <div id="editorMeta" class="small" style="color: var(--text-dark-gray);"></div>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap" id="editorActions"></div>
+                    </div>
+                    <div id="editorMessage" class="small mt-2" style="color: var(--text-dark-gray);"></div>
+                </div>
+            </div>
+
+            <div class="alert" style="background: rgba(212,175,55,0.07); border: 1px solid rgba(212,175,55,0.35); color: var(--text-gray);">
+                <i class="fas fa-pen-to-square me-2" style="color: var(--gold-primary);"></i>
+                Add photos, fix names, or correct dates below, then choose
+                <strong>Regenerate chart</strong> to build an updated proof.
+            </div>
+
+            <div id="dataListContainer" class="mb-4"></div>
+        </section>
     </div>
 
-    <!-- Build Chart Modal -->
     <footer class="py-4 text-center mt-4" style="background-color: var(--deep-black); color: var(--text-gray);">
         <div class="container">
             <div class="d-flex align-items-center justify-content-center mb-2">
@@ -143,257 +471,13 @@
         </div>
     </footer>
 
-    <!-- Build Tree Drawer -->
-    <div class="offcanvas offcanvas-end" tabindex="-1" id="buildTreeDrawer" style="width: 560px; background-color: var(--primary-black); border-left: 1px solid var(--light-black);">
-        <div class="offcanvas-header" style="border-bottom: 1px solid var(--light-black);">
-            <h5 class="offcanvas-title" style="color: var(--gold-primary);"><i class="fas fa-tree me-2"></i>Build Your Family Tree</h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
-        </div>
-        <div class="offcanvas-body">
-            <form id="familySearchForm">
-                <h6 class="mb-3" style="color: var(--gold-primary);">Contact Info</h6>
-                <div class="mb-3">
-                    <label for="contactName" class="form-label">Your Name <span style="color: #dc3545;">*</span></label>
-                    <input type="text" class="form-control" id="contactName" name="contact_name" required>
-                </div>
-                <div class="mb-3">
-                    <label for="contactEmail" class="form-label">Your Email <span style="color: #dc3545;">*</span></label>
-                    <input type="email" class="form-control" id="contactEmail" name="contact_email" required>
-                </div>
-                <div class="mb-3">
-                    <label for="contactPhone" class="form-label">Phone Number <span style="color: #dc3545;">*</span></label>
-                    <input type="tel" class="form-control" id="contactPhone" name="contact_phone" required>
-                </div>
-
-                <h6 class="mb-3 mt-4" style="color: var(--gold-primary);">Tree Configuration</h6>
-                <div class="mb-3">
-                    <label for="startingPersonSelect" class="form-label">Starting Person <span style="color: #dc3545;">*</span></label>
-                    <select class="form-select" id="startingPersonSelect">
-                        <option value="" disabled selected>Loading...</option>
-                    </select>
-                    <div id="manualIdWrapper" style="display: none; margin-top: 8px;">
-                        <input type="text" class="form-control" id="startingPersonManual" placeholder="e.g. KWQS-BYD">
-                    </div>
-                    <input type="hidden" id="startingPerson" name="starting_person" required>
-                    <div class="form-text">Select a family member or choose "Other" to enter a Person ID manually.</div>
-                </div>
-
-                <div class="mb-3">
-                    <label for="familyName" class="form-label">Family Name <span style="color: #dc3545;">*</span></label>
-                    <input type="text" class="form-control" id="familyName" name="title" required>
-                </div>
-
-                <div class="mb-3">
-                    <label for="treeType" class="form-label">Tree Type</label>
-                    <select class="form-select" id="treeType" name="tree_type">
-                        <option value="ancestor" selected>Ancestor Tree</option>
-                        <option value="descendant">Descendant Tree</option>
-                    </select>
-                </div>
-
-                <div class="mb-3">
-                    <label for="generations" class="form-label">Generations</label>
-                    <select class="form-select" id="generations" name="generations">
-                        <option value="5" selected>5 Generations</option>
-                        <option value="4">4 Generations</option>
-                    </select>
-                </div>
-
-                <div class="mb-4">
-                    <label class="form-label">Design Theme</label>
-                    <div class="row g-2" id="themeSelection">
-                        <div class="col-6">
-                            <div class="theme-selector selected" data-theme="royal-heritage" onclick="selectTheme('royal-heritage')" style="cursor:pointer; padding:8px; border:2px solid var(--gold-primary); border-radius:8px;">
-                                <img src="assets/Eichelberger_black.jpg" alt="Royal Heritage" style="width:100%; height:70px; object-fit:cover; border-radius:6px;" class="mb-1" id="preview-royal-heritage">
-                                <div class="text-center"><small style="color: var(--gold-primary); font-weight:600;">Royal Heritage</small></div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="theme-selector" data-theme="rustic-roots" onclick="selectTheme('rustic-roots')" style="cursor:pointer; padding:8px; border:2px solid var(--light-black); border-radius:8px;">
-                                <img src="assets/Eichelberger_rustic.jpg" alt="Rustic Roots" style="width:100%; height:70px; object-fit:cover; border-radius:6px;" class="mb-1" id="preview-rustic-roots">
-                                <div class="text-center"><small style="color: var(--gold-primary); font-weight:600;">Rustic Roots</small></div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="theme-selector" data-theme="vintage-botanical" onclick="selectTheme('vintage-botanical')" style="cursor:pointer; padding:8px; border:2px solid var(--light-black); border-radius:8px;">
-                                <img src="assets/Eichelberger_green.jpg" alt="Vintage Botanical" style="width:100%; height:70px; object-fit:cover; border-radius:6px;" class="mb-1" id="preview-vintage-botanical">
-                                <div class="text-center"><small style="color: var(--gold-primary); font-weight:600;">Vintage Botanical</small></div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="theme-selector" data-theme="ancestral-stone" onclick="selectTheme('ancestral-stone')" style="cursor:pointer; padding:8px; border:2px solid var(--light-black); border-radius:8px;">
-                                <img src="assets/Eichelberger_stone.jpg" alt="Ancestral Stone" style="width:100%; height:70px; object-fit:cover; border-radius:6px;" class="mb-1" id="preview-ancestral-stone">
-                                <div class="text-center"><small style="color: var(--gold-primary); font-weight:600;">Ancestral Stone</small></div>
-                            </div>
-                        </div>
-                    </div>
-                    <input type="hidden" id="selectedTheme" name="theme" value="royal-heritage">
-                </div>
-
-                <div id="totalPrice" class="mb-3"></div>
-
-                <div id="paymentSection" class="mb-4">
-                    <div class="alert alert-warning text-center" id="paymentRequiredAlert" style="background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border-color: var(--gold-primary); color: #92400e;">
-                        <i class="fas fa-shield-alt me-2" style="color: var(--gold-primary);"></i>
-                        <strong>Secure Payment Required</strong><br>
-                        <small>Payment must be completed before submitting your tree request.</small>
-                    </div>
-                    <div class="text-center mb-3" id="paymentButtonContainer">
-                        <button type="button" id="proceedToPaymentBtn" class="btn btn-lg" style="background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%); color: var(--deep-black); font-weight: 600; border: none;" onclick="handleProceedToPayment(event)">
-                            <i class="fas fa-credit-card me-2"></i>Proceed to Payment
-                        </button>
-                    </div>
-                    <div id="paymentPollingMessage" class="alert alert-info text-center d-none" style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border-color: var(--gold-primary); color: #1e40af;">
-                        <div class="spinner-border spinner-border-sm me-2" role="status" style="color: var(--gold-primary);"><span class="visually-hidden">Loading...</span></div>
-                        <strong>Confirming your payment...</strong><br>
-                        <small>Please wait while we verify.</small>
-                    </div>
-                    <div id="paymentCompleteMessage" class="alert alert-success text-center d-none" style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-color: var(--gold-primary); color: #065f46;">
-                        <i class="fas fa-check-circle fa-2x mb-2" style="color: var(--gold-primary);"></i><br>
-                        <strong>Payment Confirmed!</strong><br>
-                        <small>Submitting your request...</small>
-                    </div>
-                    <div class="text-center">
-                        <button type="submit" class="btn btn-nordic btn-lg d-none" disabled><i class="fas fa-paper-plane me-2"></i>Retry</button>
-                    </div>
-                </div>
-
-                <div id="directSubmitSection" class="mb-4 d-none">
-                    <div class="text-center">
-                        <button type="submit" class="btn btn-lg" id="directSubmitBtn" style="background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%); color: var(--deep-black); font-weight: 600; border: none;">
-                            <i class="fas fa-paper-plane me-2"></i>Submit Tree Request
-                        </button>
-                    </div>
-                </div>
-            </form>
-
-            <div id="loadingIndicator" class="text-center py-4 d-none">
-                <div class="spinner-border text-warning mb-3" role="status"><span class="visually-hidden">Loading...</span></div>
-                <p style="color: var(--text-gray);">Submitting your request...</p>
-            </div>
-            <div id="errorMessage" class="alert alert-danger d-none mt-3"></div>
-            <div id="successMessage" class="alert alert-success d-none mt-3">
-                <div class="text-center">
-                    <i class="fas fa-check-circle fa-2x mb-2" style="color: var(--gold-primary);"></i>
-                    <h5>Request Submitted!</h5>
-                    <p class="mb-0">We'll be in touch with your completed tree.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
     <script src="/api/public-config.js"></script>
+    <script src="fs-auth.js"></script>
+    <script src="price-calculator.js"></script>
     <script src="image-cropper.js"></script>
     <script src="tree-renderer.js"></script>
     <script src="dashboard.js"></script>
-    <script src="price-calculator.js"></script>
-    <script>
-        window.paymentFlowConfig = {
-            formId: 'familySearchForm',
-            storageScope: '/dashboard.html'
-        };
-
-        (async function() {
-            try {
-                var res = await fetch('/api/config');
-                var config = await res.json();
-                window.paymentFlowEnabled = config.paymentFlow;
-            } catch (e) {
-                window.paymentFlowEnabled = true;
-            }
-            if (!window.paymentFlowEnabled) {
-                var totalPrice = document.getElementById('totalPrice');
-                var paymentSection = document.getElementById('paymentSection');
-                var directSubmitSection = document.getElementById('directSubmitSection');
-                if (totalPrice) totalPrice.style.display = 'none';
-                if (paymentSection) paymentSection.style.display = 'none';
-                if (directSubmitSection) directSubmitSection.classList.remove('d-none');
-            }
-        })();
-
-        function selectTheme(themeName) {
-            document.querySelectorAll('#buildTreeDrawer .theme-selector').forEach(function(s) {
-                s.style.borderColor = 'var(--light-black)';
-                s.classList.remove('selected');
-            });
-            var sel = document.querySelector('#buildTreeDrawer [data-theme="' + themeName + '"]');
-            if (sel) { sel.style.borderColor = 'var(--gold-primary)'; sel.classList.add('selected'); }
-            document.getElementById('selectedTheme').value = themeName;
-            if (typeof updatePriceDisplay === 'function') updatePriceDisplay();
-        }
-
-        var THEME_TO_BACKEND = { 'royal-heritage': 'black', 'rustic-roots': 'rustic', 'vintage-botanical': 'green', 'ancestral-stone': 'stone' };
-
-        async function submitTreeRequest(paymentStatusData) {
-            var getValue = function(id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; };
-            var contactName = getValue('contactName');
-            var contactEmail = getValue('contactEmail');
-            var contactPhone = getValue('contactPhone');
-            var startingPerson = getValue('startingPerson');
-            var familyName = getValue('familyName');
-            var generations = getValue('generations');
-            var treeType = getValue('treeType');
-            var selectedTheme = getValue('selectedTheme');
-            var backendTheme = THEME_TO_BACKEND[selectedTheme] || 'black';
-
-            if (!contactName || !contactEmail || !startingPerson || !familyName) {
-                var errEl = document.getElementById('errorMessage');
-                if (errEl) { errEl.textContent = 'Please fill in all required fields.'; errEl.classList.remove('d-none'); }
-                return;
-            }
-
-            var loadingEl = document.getElementById('loadingIndicator');
-            if (loadingEl) loadingEl.classList.remove('d-none');
-
-            var TREE_BACKEND = (window.APP_CONFIG && window.APP_CONFIG.TREE_BACKEND_BASE_URL) || 'http://localhost:8000';
-
-            var payload = {
-                user_scope_id: dashboardState ? dashboardState.userScopeId : '',
-                context_id: dashboardState ? dashboardState.selectedContextId : '',
-                tree_type: treeType,
-                theme: backendTheme,
-                title: familyName,
-                max_generations: parseInt(generations, 10) || 5,
-                contact_email: contactEmail,
-                contact_name: contactName,
-                contact_phone: contactPhone || ''
-            };
-
-            try {
-                var response = await fetch(TREE_BACKEND + '/build_chart', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (!response.ok) {
-                    var errData = await response.json();
-                    throw new Error(errData.error || 'Submission failed');
-                }
-                if (loadingEl) loadingEl.classList.add('d-none');
-                var successEl = document.getElementById('successMessage');
-                if (successEl) successEl.classList.remove('d-none');
-                setTimeout(function() { if (typeof loadChartBuilds === 'function') loadChartBuilds(); }, 5000);
-            } catch (error) {
-                if (loadingEl) loadingEl.classList.add('d-none');
-                var errEl2 = document.getElementById('errorMessage');
-                if (errEl2) { errEl2.textContent = 'Submission failed: ' + error.message; errEl2.classList.remove('d-none'); }
-            }
-        }
-
-        window.submitFamilyTreeAfterPayment = submitTreeRequest;
-
-        document.addEventListener('DOMContentLoaded', function() {
-            var form = document.getElementById('familySearchForm');
-            if (form) {
-                form.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    submitTreeRequest(null);
-                });
-            }
-        });
-    </script>
-    <script src="stripe-integration.js"></script>
 </body>
 </html>

@@ -83,8 +83,46 @@ app.use('/api/payment-status', require('./api/payment-status'));
 // Webhook must be mounted with raw body parser - handled in the route file
 app.use('/api/stripe-webhook', require('./api/stripe-webhook'));
 
-// Admin route guard - verify FamilySearch identity before serving admin page
-const ADMIN_PERSON_IDS = ['KWN5-J7M', 'KWXJ-J3Z'];
+// Retired routes.
+//
+// Ordering a chart used to run through a standalone form that never created an
+// account, which is why photos and corrections had to be handled over email.
+// That path is gone; everything now happens in the signed-in dashboard. These
+// redirects keep old bookmarks and links in already-sent emails working.
+const RETIRED_ROUTES = {
+  '/source-selection': '/dashboard',
+  '/source-selection.html': '/dashboard',
+  '/familysearch-config': '/dashboard',
+  '/familysearch-config.html': '/dashboard',
+  '/familysearch': '/login',
+  '/familysearch.html': '/login',
+  '/gedcom': '/dashboard',
+  '/gedcom.html': '/dashboard'
+};
+
+Object.entries(RETIRED_ROUTES).forEach(([from, to]) => {
+  app.get(from, (req, res) => {
+    // Keep the query string. A Stripe session created before this deploy
+    // returns to an old path with ?payment=success&request_id=..., and the
+    // dashboard needs those params to refresh the unlocked order.
+    const queryIndex = req.originalUrl.indexOf('?');
+    const query = queryIndex === -1 ? '' : req.originalUrl.slice(queryIndex);
+    res.redirect(301, to + query);
+  });
+});
+
+// Admin route guard - verify FamilySearch identity before serving admin page.
+// Configured via env so adding an admin does not require a code change; the
+// same variable is read by the Python backend.
+const DEFAULT_ADMIN_PERSON_IDS = ['KWN5-J7M', 'KWXJ-J3Z'];
+
+function getAdminPersonIds() {
+  const configured = (process.env.ADMIN_PERSON_IDS || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return configured.length ? configured : DEFAULT_ADMIN_PERSON_IDS;
+}
 
 app.get(['/admin', '/admin.html'], async (req, res, next) => {
   const cookies = (req.headers.cookie || '').split(';').reduce((acc, c) => {
@@ -112,7 +150,7 @@ app.get(['/admin', '/admin.html'], async (req, res, next) => {
     }
     const data = await resp.json();
     const personId = data.persons && data.persons[0] && data.persons[0].id;
-    if (!ADMIN_PERSON_IDS.includes(personId)) {
+    if (!getAdminPersonIds().includes(personId)) {
       return res.status(403).send('Access denied');
     }
     res.sendFile(path.join(__dirname, 'admin.html'));

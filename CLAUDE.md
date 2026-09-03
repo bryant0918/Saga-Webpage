@@ -19,7 +19,7 @@ No build step, no bundler, no frontend framework. Plain HTML/CSS/vanilla JS serv
 
 For local dev, use `FS_ENVIRONMENT=beta` in `.env` — FamilySearch beta is more permissive with redirect URIs. The Python backend should be running at `http://localhost:5000` (set `TREE_BACKEND_BASE_URL` in `.env`).
 
-There is no test suite or linter configured for this repo.
+Tests: `npm test` (Node's built-in runner over `test/*.test.js`). Covers pricing consistency, the payment→unlock relay, and a syntax/reference check across every shipped script and HTML page. No linter is configured.
 
 ## Architecture
 
@@ -40,10 +40,12 @@ Express app that:
 All pages read config from `window.APP_CONFIG` (set by `/api/public-config.js` script tag).
 
 - `index.html` + `main.js` — Landing page and OAuth callback handler
-- `familysearch.html` + `familysearch.js` — OAuth login (PKCE flow), tree configuration, order submission
-- `dashboard.html` + `dashboard.js` — Authenticated tree viewer/editor; calls backend `/people/tree/*` endpoints
-- `admin.html` + `admin.js` — Admin view for managing all user trees (guarded server-side)
-- `gedcom.html` + `script.js` — GEDCOM file upload flow
+- `login.html` + `fs-oauth.js` — Sign in with FamilySearch (PKCE flow)
+- `dashboard.html` + `dashboard.js` — **The only ordering path.** Charts-first: a grid of chart orders, a 3-step new-chart wizard (FamilySearch or GEDCOM), and a per-chart people editor
+- `admin.html` + `admin.js` + `admin-orders.js` — Admin view: all orders (download, comp) plus tree browsing/editing (guarded server-side)
+- `fs-auth.js` — Shared session helpers and backend API client used by dashboard and admin
+
+**Retired:** `source-selection.html`, `familysearch-config.html`, `familysearch.html`, `gedcom.html`, `script.js`, `familysearch.js`, `stripe-integration.js`. The standalone signed-out order form is gone; `server.js` 301-redirects those paths into the dashboard. Do not reintroduce a second ordering path.
 
 ### Authentication
 
@@ -58,11 +60,20 @@ Frontend calls the Python backend at `TREE_BACKEND_BASE_URL` (from `window.APP_C
 - `POST /people/tree/sync` — fetch and cache a full tree
 - `POST /people/tree/{husb,wife,kids,siblings,descendants,metadata}` — read cached sections
 - `POST /people/tree/update` and `/people/tree/update-image` — edit cached data
-- `POST /build_tree` and `/build_descendant_tree` — kick off PDF generation
+- `POST /build_chart` — generate a chart from cached data; creates an order and returns it
+- `POST /orders/{list,get,download,comp}` — chart orders and entitlement-gated PDF download
+- `POST /people/tree/import-gedcom` — import a GEDCOM upload into the user's cache
+- `POST /build_tree` and `/build_descendant_tree` — legacy direct generation (no order record)
 
 ### Payments
 
-Stripe Checkout flow in `api/`. Payment status stored in Redis (Upstash) with 24h TTL. When `PAYMENT_FLOW=false`, frontend skips Stripe and submits directly to the backend. Pricing logic in `price-calculator.js` (frontend) and `api/stripe-pricing.js` (server price IDs).
+**Generate first, pay second.** A customer generates a chart for free and gets a watermarked proof; paying unlocks the clean print file. Stripe Checkout lives in `api/`.
+
+The webhook does two things on `checkout.session.completed`: writes payment status to Redis (24h TTL, for the polling UI) and calls the backend's `/orders/mark-paid` via `api/notify-backend.js` using `INTERNAL_API_SECRET`. **The backend order record is the durable one that gates the download**; Redis is only a cache. If the backend call fails the webhook returns non-2xx so Stripe retries — the backend's mark-paid is idempotent.
+
+`create-payment-session` requires an `orderId` and puts it in session metadata. Without it the webhook cannot unlock anything, so the route refuses rather than taking money it cannot fulfil.
+
+Prices live in **four** places that must agree: `price-calculator.js`, `api/create-payment-session.js` (`PRICE_AMOUNT_MAP`), `api/stripe-pricing.js` (Stripe price IDs), and the backend's `family_trees/orders.py`. `test/pricing.test.js` enforces the first three.
 
 ### Styling
 
@@ -80,6 +91,8 @@ See `.env.example` for full list. Key ones:
 
 ## Key Constraints
 
-- Admin access is allowlisted by FamilySearch Person ID in `server.js` (`ADMIN_PERSON_IDS` array)
+- Admin access is allowlisted by FamilySearch Person ID via the `ADMIN_PERSON_IDS` env var (comma-separated), read by both `server.js` and the Python backend. It falls back to built-in defaults when unset.
 - Theme names differ between frontend and backend: `royal-heritage`→`black`, `rustic-roots`→`rustic`, `vintage-botanical`→`green`, `ancestral-stone`→`stone` (mapped in `price-calculator.js`)
+- **One ordering path only.** Everything goes through the signed-in dashboard. Don't add a signed-out order form — the old one is why photos and corrections had to be handled by hand over email.
+- `makePersonSlug` in `fs-auth.js` must stay byte-identical in behaviour to `make_user_scope_id` in the backend's `family_trees/web/auth.py`. If they diverge, a user's charts and their tree cache land in different storage folders and the dashboard silently shows nothing.
 - The Python backend at `4gen_chart/` is a sibling repo — see the parent directory's `CLAUDE.md` for its architecture

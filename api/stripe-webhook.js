@@ -6,6 +6,7 @@ const router = express.Router();
 const Stripe = require('stripe');
 const Redis = require('ioredis');
 const { PRICE_MAP } = require('./stripe-pricing');
+const { markOrderPaid } = require('./notify-backend');
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -208,8 +209,40 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
         
         // Store payment status in Redis
         await storePaymentStatus(requestId, paymentData);
-        
+
         console.log(`Payment confirmed for request ${requestId}`);
+
+        // Unlock the chart on the backend. Redis holds payment status for 24h
+        // for the polling UI; the backend's order record is the durable one
+        // that gates the print-file download, so it must be told too.
+        const orderId = session.metadata && session.metadata.order_id;
+        if (orderId) {
+          const result = await markOrderPaid({
+            orderId,
+            stripeSessionId: session.id,
+            requestId,
+            amountPaidCents: amountPaid,
+            // productKey comes from the Stripe line items above, so the
+            // backend can confirm the customer bought the product they are
+            // unlocking rather than a cheaper one.
+            productKey,
+          });
+
+          if (!result.ok) {
+            // Return non-2xx so Stripe retries. The payment is already banked
+            // and stored in Redis; retrying only re-attempts the unlock, which
+            // the backend treats as idempotent.
+            console.error(
+              `Order ${orderId} paid but not unlocked (${result.error}). Asking Stripe to retry.`
+            );
+            return res.status(500).json({ error: 'Backend unlock failed; retry' });
+          }
+        } else {
+          console.warn(
+            `Checkout session ${session.id} had no order_id in metadata; ` +
+              'nothing to unlock on the backend.'
+          );
+        }
         break;
         }
         

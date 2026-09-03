@@ -73,6 +73,29 @@
                     <div class="col-lg-10">
                         <div class="card mb-4">
                             <div class="card-body p-4">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                                    <h4 class="mb-0" style="color: var(--gold-primary);">Orders</h4>
+                                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                                        <div class="btn-group btn-group-sm" role="group" aria-label="Filter orders">
+                                            <button type="button" class="btn btn-outline-secondary active" data-order-filter="all">All</button>
+                                            <button type="button" class="btn btn-outline-secondary" data-order-filter="unpaid">Unpaid</button>
+                                            <button type="button" class="btn btn-outline-secondary" data-order-filter="paid">Paid</button>
+                                            <button type="button" class="btn btn-outline-secondary" data-order-filter="failed">Failed</button>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-warning" id="ordersRefreshBtn">
+                                            <i class="fas fa-rotate me-1"></i>Refresh
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="ordersStatus" class="small mb-2" style="color: var(--text-dark-gray);"></div>
+                                <div id="ordersList">
+                                    <div class="text-center py-4" style="color: var(--text-dark-gray);">Loading orders...</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card mb-4">
+                            <div class="card-body p-4">
                                 <h4 class="mb-3" style="color: var(--gold-primary);">Search Trees</h4>
                                 <p style="color: var(--text-dark-gray); font-size: 0.9rem;">Search by name or FamilySearch ID to find stored tree data.</p>
                                 <div class="row g-3 align-items-end">
@@ -186,8 +209,11 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
     <script src="/api/public-config.js"></script>
+    <script src="fs-auth.js"></script>
+    <script src="price-calculator.js"></script>
     <script src="image-cropper.js"></script>
     <script src="tree-renderer.js"></script>
     <script src="admin.js"></script>
+    <script src="admin-orders.js"></script>
 </body>
 </html>

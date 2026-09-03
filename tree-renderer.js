@@ -142,7 +142,7 @@ function buildEditableField(label, value, fieldKey, section, personId, fieldName
         html += '<div class="col-sm-6 mb-2"><small style="color: var(--text-dark-gray);">' + label + "</small>";
         html += '<div class="d-flex align-items-center gap-2 mt-1">';
         html += '<input type="text" id="edit-input-' + safeKey + '" class="form-control form-control-sm" value="' + escapeAttr(value || "") + '" style="background-color: var(--light-black); color: var(--text-gray); border-color: var(--gold-primary); max-width: 200px;">';
-        html += '<button class="btn btn-sm" onclick="var v=document.getElementById(\'edit-input-' + safeKey + '\').value;window.TreeRendererConfig.saveFieldEdit(\'' + section + '\',\'' + personId + '\',\'' + fieldName + '\',v)" style="color: var(--gold-primary); padding: 2px 8px;"><i class="fas fa-check"></i></button>';
+        html += '<button class="btn btn-sm" onclick="var v=document.getElementById(\'edit-input-' + safeKey + '\').value;window.TreeRendererConfig.saveFieldEdit(\'' + escapeAttr(section) + '\',\'' + escapeAttr(personId) + '\',\'' + escapeAttr(fieldName) + '\',v)" style="color: var(--gold-primary); padding: 2px 8px;"><i class="fas fa-check"></i></button>';
         html += '<button class="btn btn-sm" onclick="window.TreeRendererConfig.cancelEdit()" style="color: var(--text-dark-gray); padding: 2px 8px;"><i class="fas fa-times"></i></button>';
         html += "</div></div>";
     } else {
