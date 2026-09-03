@@ -4,7 +4,6 @@
 const express = require('express');
 const router = express.Router();
 const Stripe = require('stripe');
-const Redis = require('ioredis');
 const { PRICE_MAP } = require('./stripe-pricing');
 const { markOrderPaid } = require('./notify-backend');
 
@@ -14,39 +13,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const PRODUCT_BY_PRICE_ID = Object.fromEntries(
   Object.entries(PRICE_MAP).map(([productKey, priceId]) => [priceId, productKey])
 );
-
-// Initialize Redis connection
-let redis;
-function getRedis() {
-  if (!redis) {
-    redis = new Redis(process.env.REDIS_URL, {
-      tls: {
-        rejectUnauthorized: false
-      },
-      maxRetriesPerRequest: 1,
-      enableReadyCheck: false,
-      connectTimeout: 5000,
-      retryStrategy(times) {
-        if (times > 2) return null;
-        return Math.min(times * 500, 2000);
-      },
-    });
-    redis.on('error', () => {});
-  }
-  return redis;
-}
-
-// Helper function to store payment in Redis
-async function storePaymentStatus(requestId, paymentData) {
-  const redisClient = getRedis();
-  const key = `payment:${requestId}`;
-  const value = JSON.stringify(paymentData);
-  
-  // Store with 24 hour expiry (86400 seconds)
-  await redisClient.set(key, value, 'EX', 86400);
-  
-  console.log(`Stored payment status for request ${requestId}`);
-}
 
 // CRITICAL: Use raw body parser for webhook signature verification
 router.post('/', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -92,15 +58,9 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
           return res.status(400).json({ error: 'Missing request_id in metadata' });
         }
 
-        // Re-fetch session with expanded discount breakdown so we can show coupon details.
-        const expandedSession = await stripe.checkout.sessions.retrieve(session.id, {
-          expand: [
-            // Stripe max expansion depth is 4; expanding coupon/promotion_code here exceeds that.
-            'total_details.breakdown.discounts.discount',
-          ],
-        });
-
-        // Look up line items from Stripe so we can reliably identify the purchased price.
+        // Look up line items so we can identify the product actually purchased.
+        // The backend refuses to unlock when this does not match the order, so
+        // it must come from Stripe rather than from client-supplied metadata.
         const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
           limit: 1,
           expand: ['data.price'],
@@ -109,113 +69,13 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
         const priceId = firstLineItem && firstLineItem.price ? firstLineItem.price.id : null;
         const productKey = priceId ? PRODUCT_BY_PRICE_ID[priceId] : null;
 
-        const amountSubtotal = expandedSession.amount_subtotal != null
-          ? expandedSession.amount_subtotal
-          : session.amount_subtotal;
-        const amountDiscount = expandedSession.total_details &&
-          expandedSession.total_details.amount_discount != null
-          ? expandedSession.total_details.amount_discount
-          : (session.total_details && session.total_details.amount_discount) || 0;
-        const amountTotal = expandedSession.amount_total != null
-          ? expandedSession.amount_total
-          : session.amount_total;
-        const amountPaid = session.amount_total != null ? session.amount_total : amountTotal;
-        const amountDue = session.payment_status === 'paid' ? 0 : Math.max((amountTotal || 0) - (amountPaid || 0), 0);
+        const amountPaid = session.amount_total;
 
-        const discounts = (expandedSession.total_details &&
-          expandedSession.total_details.breakdown &&
-          expandedSession.total_details.breakdown.discounts) || [];
-        const couponsUsedRaw = discounts.map((entry) => {
-          const discountObj = entry.discount || {};
-          const coupon = discountObj.coupon && typeof discountObj.coupon === 'object'
-            ? discountObj.coupon
-            : null;
-          const couponId = coupon
-            ? coupon.id
-            : (typeof discountObj.coupon === 'string' ? discountObj.coupon : null);
-          const promotionCodeObj = discountObj.promotion_code && typeof discountObj.promotion_code === 'object'
-            ? discountObj.promotion_code
-            : null;
-          const promotionCodeValue = promotionCodeObj
-            ? (promotionCodeObj.code || promotionCodeObj.id || null)
-            : (typeof discountObj.promotion_code === 'string' ? discountObj.promotion_code : null);
-
-          return {
-            amount: entry.amount || 0,
-            couponId: couponId,
-            couponName: coupon ? (coupon.name || null) : null,
-            promotionCode: promotionCodeValue,
-          };
-        }).filter((item) => item.couponId || item.promotionCode || item.amount > 0);
-
-        // Enrich IDs into user-friendly labels where Stripe only returns object IDs.
-        const couponsUsed = await Promise.all(couponsUsedRaw.map(async (item) => {
-          let couponName = item.couponName;
-          let promotionCode = item.promotionCode;
-
-          if (!couponName && item.couponId && typeof item.couponId === 'string') {
-            try {
-              const coupon = await stripe.coupons.retrieve(item.couponId);
-              if (coupon && coupon.name) {
-                couponName = coupon.name;
-              }
-            } catch (error) {
-              console.warn(`Unable to enrich coupon ${item.couponId}:`, error.message);
-            }
-          }
-
-          if (
-            promotionCode &&
-            typeof promotionCode === 'string' &&
-            promotionCode.startsWith('promo_')
-          ) {
-            try {
-              const promo = await stripe.promotionCodes.retrieve(promotionCode);
-              if (promo && promo.code) {
-                promotionCode = promo.code;
-              }
-            } catch (error) {
-              console.warn(`Unable to enrich promotion code ${promotionCode}:`, error.message);
-            }
-          }
-
-          return {
-            ...item,
-            couponName,
-            promotionCode,
-          };
-        }));
-        
-        // Prepare payment data to store
-        const paymentData = {
-          paid: true,
-          sessionId: session.id,
-          amount: amountTotal,
-          amountSubtotal: amountSubtotal,
-          amountDiscount: amountDiscount,
-          amountTotal: amountTotal,
-          amountPaid: amountPaid,
-          amountDue: amountDue,
-          currency: session.currency,
-          couponsUsed: couponsUsed,
-          customerEmail: session.customer_email || session.metadata.contact_email,
-          theme: session.metadata.theme || null,
-          paymentStatus: session.payment_status,
-          priceId: priceId,
-          productKey: productKey || session.metadata.product_key || null,
-          timestamp: Date.now(),
-          metadata: session.metadata,
-        };
-        
         console.log(`Payment confirmed for request ${requestId}`);
 
-        // Unlock the chart on the backend FIRST. This is the only step that
-        // matters to the customer: it is what releases the print file.
-        //
-        // Redis is written afterwards and is best-effort. It is a 24h cache
-        // for a polling UI, and an outage there must never block an unlock -
-        // it did exactly that once, so every payment succeeded on Stripe while
-        // no chart was ever released.
+        // Unlock the chart on the backend. This is the only step that matters
+        // to the customer: it is what releases the print file. Nothing else
+        // runs before it, so nothing else can prevent it.
         const orderId = session.metadata && session.metadata.order_id;
         if (orderId) {
           const result = await markOrderPaid({
@@ -245,16 +105,6 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
           );
         }
 
-        // Best-effort cache write, after the unlock and never able to fail it.
-        try {
-          await storePaymentStatus(requestId, paymentData);
-        } catch (redisError) {
-          console.warn(
-            `Could not cache payment status for ${requestId} in Redis ` +
-              `(${redisError.message}). The order is already unlocked; this ` +
-              'cache only backs the legacy polling endpoint.'
-          );
-        }
         break;
         }
         

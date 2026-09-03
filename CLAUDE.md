@@ -69,7 +69,9 @@ Frontend calls the Python backend at `TREE_BACKEND_BASE_URL` (from `window.APP_C
 
 **Generate first, pay second.** A customer generates a chart for free and gets a watermarked proof; paying unlocks the clean print file. Stripe Checkout lives in `api/`.
 
-The webhook does two things on `checkout.session.completed`: writes payment status to Redis (24h TTL, for the polling UI) and calls the backend's `/orders/mark-paid` via `api/notify-backend.js` using `INTERNAL_API_SECRET`. **The backend order record is the durable one that gates the download**; Redis is only a cache. If the backend call fails the webhook returns non-2xx so Stripe retries — the backend's mark-paid is idempotent.
+On `checkout.session.completed` the webhook calls the backend's `/orders/mark-paid` via `api/notify-backend.js` using `INTERNAL_API_SECRET`. **That record is the only thing gating the print-file download.** If the call fails the webhook returns non-2xx so Stripe retries; mark-paid is idempotent.
+
+**Nothing may run before the unlock.** The webhook used to cache payment status in Redis first; when Redis went down that write threw, the handler returned 500, and the unlock never happened — every payment succeeded while no chart was released. Redis, `ioredis` and `/api/payment-status` are gone (that endpoint's only caller was the deleted `familysearch.js`). `test/webhook-unlock-order.test.js` fails if any new `await` is introduced ahead of the unlock.
 
 `create-payment-session` requires an `orderId` and puts it in session metadata. Without it the webhook cannot unlock anything, so the route refuses rather than taking money it cannot fulfil.
 
@@ -83,7 +85,6 @@ Bootstrap 5.3 dark theme, Font Awesome 6.4, Google Fonts (Inter + Playfair Displ
 
 See `.env.example` for full list. Key ones:
 - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` — Stripe integration
-- `REDIS_URL` — Upstash Redis for payment status
 - `FS_APP_KEY`, `FS_ENVIRONMENT`, `FS_BASE_URL`, `FS_TOKEN_URL`, `FS_API_BASE_URL` — FamilySearch OAuth
 - `TREE_BACKEND_BASE_URL` — Python backend URL (defaults: `localhost:5000` for dev, `family-trees.replit.app` for prod)
 - `PAYMENT_FLOW` — `true`/`false` to enable/disable Stripe gate
