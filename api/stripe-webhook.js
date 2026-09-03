@@ -207,14 +207,15 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
           metadata: session.metadata,
         };
         
-        // Store payment status in Redis
-        await storePaymentStatus(requestId, paymentData);
-
         console.log(`Payment confirmed for request ${requestId}`);
 
-        // Unlock the chart on the backend. Redis holds payment status for 24h
-        // for the polling UI; the backend's order record is the durable one
-        // that gates the print-file download, so it must be told too.
+        // Unlock the chart on the backend FIRST. This is the only step that
+        // matters to the customer: it is what releases the print file.
+        //
+        // Redis is written afterwards and is best-effort. It is a 24h cache
+        // for a polling UI, and an outage there must never block an unlock -
+        // it did exactly that once, so every payment succeeded on Stripe while
+        // no chart was ever released.
         const orderId = session.metadata && session.metadata.order_id;
         if (orderId) {
           const result = await markOrderPaid({
@@ -229,9 +230,9 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
           });
 
           if (!result.ok) {
-            // Return non-2xx so Stripe retries. The payment is already banked
-            // and stored in Redis; retrying only re-attempts the unlock, which
-            // the backend treats as idempotent.
+            // Return non-2xx so Stripe retries. The payment is already banked;
+            // retrying only re-attempts the unlock, which the backend treats
+            // as idempotent.
             console.error(
               `Order ${orderId} paid but not unlocked (${result.error}). Asking Stripe to retry.`
             );
@@ -241,6 +242,17 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
           console.warn(
             `Checkout session ${session.id} had no order_id in metadata; ` +
               'nothing to unlock on the backend.'
+          );
+        }
+
+        // Best-effort cache write, after the unlock and never able to fail it.
+        try {
+          await storePaymentStatus(requestId, paymentData);
+        } catch (redisError) {
+          console.warn(
+            `Could not cache payment status for ${requestId} in Redis ` +
+              `(${redisError.message}). The order is already unlocked; this ` +
+              'cache only backs the legacy polling endpoint.'
           );
         }
         break;
