@@ -93,6 +93,23 @@ test('every local stylesheet referenced by an HTML page exists', () => {
   assert.deepEqual(missing, [], missing.join('\n'));
 });
 
+test('wizard example charts exist for every type, generation, and theme', () => {
+  const types = { ancestor: [4, 5], descendant: [3, 4] };
+  const themes = ['black', 'rustic', 'green', 'stone'];
+  const missing = [];
+
+  Object.entries(types).forEach(([treeType, generations]) => {
+    generations.forEach((count) => {
+      themes.forEach((theme) => {
+        const rel = `assets/examples/eichelberger-${treeType}-${count}-${theme}.jpg`;
+        if (!fs.existsSync(path.join(ROOT, rel))) missing.push(rel);
+      });
+    });
+  });
+
+  assert.deepEqual(missing, [], missing.join('\n'));
+});
+
 test('the retired ordering pages are gone', () => {
   // The standalone form let people order without an account, which is the
   // whole reason corrections had to happen over email. If one comes back,

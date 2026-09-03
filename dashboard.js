@@ -23,6 +23,7 @@ var state = {
     person: null,
     orders: [],
     activeOrderId: null,
+    chartFilter: 'proof',
     pollTimer: null,
     isPolling: false,
     pollStartedAt: null,
@@ -104,28 +105,73 @@ function showView(name) {
 function statusLabel(order) {
     if (order.status === 'failed') return { text: 'Failed', cls: 'status-failed' };
     if (order.status === 'building') return { text: 'Building', cls: 'status-building' };
+    if (order.archived) return { text: 'Archived', cls: 'status-archived' };
     if (order.is_unlocked) return { text: 'Purchased', cls: 'status-paid' };
     return { text: 'Proof ready', cls: 'status-proof' };
+}
+
+function getVisibleOrders() {
+    if (!state.orders || !state.orders.length) return [];
+
+    if (state.chartFilter === 'proof') {
+        return state.orders.filter(function (order) {
+            if (order.is_unlocked || order.archived) return false;
+            return ['ready', 'building', 'failed'].includes(order.status);
+        });
+    }
+    if (state.chartFilter === 'purchased') {
+        return state.orders.filter(function (order) {
+            return order.is_unlocked;
+        });
+    }
+    if (state.chartFilter === 'archived') {
+        return state.orders.filter(function (order) {
+            return Boolean(order.archived) && order.status === 'ready';
+        });
+    }
+    return state.orders;
+}
+
+function renderChartFilterButtons() {
+    document.querySelectorAll('[data-chart-filter]').forEach(function (button) {
+        var active = button.getAttribute('data-chart-filter') === state.chartFilter;
+        button.classList.toggle('active', active);
+        button.classList.toggle('btn-warning', active);
+        button.classList.toggle('btn-outline-warning', !active);
+    });
 }
 
 function renderCharts() {
     var grid = document.getElementById('chartsGrid');
     if (!grid) return;
+    renderChartFilterButtons();
 
-    if (!state.orders.length) {
+    var visibleOrders = getVisibleOrders();
+    if (!visibleOrders.length) {
+        var emptyTitle = state.chartFilter === 'proof'
+            ? 'No proofs yet'
+            : state.chartFilter === 'purchased'
+                ? 'No purchased charts'
+                : 'No archived charts';
+        var emptyText = state.chartFilter === 'proof'
+            ? 'Your charts in progress, proof-ready, or failed builds will appear here.'
+            : state.chartFilter === 'purchased'
+                ? 'Charts you have unlocked will appear here.'
+                : 'Archived proofs will show up here.';
+
         grid.innerHTML =
             '<div class="col-12">' +
             '<div class="text-center py-5" style="border: 1px dashed var(--light-black); border-radius: 12px;">' +
             '<i class="fas fa-tree fa-3x mb-3" style="color: var(--gold-primary); opacity: 0.5;"></i>' +
-            '<h4 style="color: var(--text-gray);">No charts yet</h4>' +
-            '<p style="color: var(--text-dark-gray);">Create your first chart and we will send you a free proof to review.</p>' +
-            '<button class="btn btn-warning" onclick="startWizard()"><i class="fas fa-plus me-2"></i>Create a chart</button>' +
+            '<h4 style="color: var(--text-gray);">' + emptyTitle + '</h4>' +
+            '<p style="color: var(--text-dark-gray);">' + emptyText + '</p>' +
+            (state.chartFilter === 'all' ? '<button class="btn btn-warning" onclick="startWizard()"><i class="fas fa-plus me-2"></i>Create a chart</button>' : '') +
             '</div></div>';
         return;
     }
 
     var html = '';
-    state.orders.forEach(function (order) {
+    visibleOrders.forEach(function (order) {
         var badge = statusLabel(order);
         var typeLabel = order.tree_type === 'ancestor' ? 'Ancestor' : 'Descendant';
         var themeName = window.Pricing.themeDisplayName(order.theme);
@@ -134,14 +180,14 @@ function renderCharts() {
         html += '<div class="col-md-6 col-xl-4">';
         html += '<div class="chart-card">';
 
-        html += '<div class="chart-card-preview">';
+        html += '<div class="chart-card-preview" data-order-preview="' + escapeAttr(order.order_id) + '">';
         if (order.status === 'building') {
             html += '<div class="text-center"><div class="spinner-border text-warning mb-2" role="status"></div>' +
                 '<div class="small" style="color: var(--text-dark-gray);">Building your chart...</div></div>';
         } else if (order.status === 'failed') {
             html += '<i class="fas fa-triangle-exclamation fa-2x" style="color: #fca5a5;"></i>';
         } else {
-            html += '<i class="fas fa-file-pdf fa-3x" style="color: var(--gold-primary); opacity: 0.6;"></i>';
+            html += '<div class="preview-skeleton"></div>';
         }
         html += '</div>';
 
@@ -171,10 +217,16 @@ function renderCharts() {
                 html += '<button class="btn btn-sm btn-warning" onclick="buyChart(\'' +
                     escapeAttr(order.order_id) + '\')"><i class="fas fa-lock-open me-1"></i>Buy' +
                     (price ? ' $' + price : '') + '</button>';
+                html += '<button class="btn btn-sm btn-outline-secondary" onclick="archiveChart(\'' +
+                    escapeAttr(order.order_id) + '\', true)"><i class="fas fa-box-archive me-1"></i>Archive</button>';
             }
         } else if (order.status === 'failed') {
             html += '<button class="btn btn-sm btn-outline-warning" onclick="regenerateChart(\'' +
                 escapeAttr(order.order_id) + '\')"><i class="fas fa-rotate me-1"></i>Try again</button>';
+        }
+        if (order.archived && order.status === 'ready' && !order.is_unlocked) {
+            html += '<button class="btn btn-sm btn-outline-secondary" onclick="archiveChart(\'' +
+                escapeAttr(order.order_id) + '\', false)"><i class="fas fa-box-open me-1"></i>Restore</button>';
         }
         html += '</div>';
 
@@ -182,6 +234,39 @@ function renderCharts() {
     });
 
     grid.innerHTML = html;
+    visibleOrders.forEach(function (order) {
+        if (order.status !== 'ready') return;
+        loadOrderPreview(order.order_id, order.preview_storage_path || order.proof_storage_path);
+    });
+}
+
+function loadOrderPreview(orderId, storagePath) {
+    if (!storagePath) return;
+    var previewNode = document.querySelector('[data-order-preview="' + CSS.escape(String(orderId)) + '"]');
+    if (!previewNode) return;
+
+    var payload = {
+        user_scope_id: state.person && state.person.scopeId,
+        order_id: orderId
+    };
+
+    window.FsAuth.postForBlob('/orders/preview', payload)
+        .then(function (blob) {
+            var url = URL.createObjectURL(blob);
+            previewNode.innerHTML = '<img src="' + escapeAttr(url) + '" alt="Chart preview" />';
+        })
+        .catch(function () {
+            previewNode.innerHTML = '<i class="fas fa-file-pdf fa-3x" style="color: var(--gold-primary); opacity: 0.6;"></i>';
+        });
+}
+
+async function handleChartFilterClick(event) {
+    var target = event.currentTarget || event.target;
+    if (!target) return;
+    var filter = target.getAttribute('data-chart-filter');
+    if (!filter) return;
+    state.chartFilter = filter;
+    renderCharts();
 }
 
 async function loadOrders() {
@@ -297,6 +382,26 @@ async function downloadChart(orderId, variant) {
             return;
         }
         setGlobalMessage('Download failed: ' + error.message, 'error');
+    }
+}
+
+async function archiveChart(orderId, archived) {
+    var order = findOrder(orderId);
+    if (!order || order.is_unlocked || order.status !== 'ready') return;
+
+    setGlobalMessage(archived ? 'Archiving this proof...' : 'Restoring this proof...', 'info');
+    try {
+        var response = await window.FsAuth.postJson('/orders/archive', {
+            user_scope_id: state.person.scopeId,
+            order_id: orderId,
+            archived: archived
+        });
+        var match = findOrder(orderId);
+        if (match) match.archived = !!(response && response.archived);
+        renderCharts();
+        setGlobalMessage('', null);
+    } catch (error) {
+        setGlobalMessage(error.message || 'Could not update the chart list.', 'error');
     }
 }
 
@@ -419,6 +524,7 @@ function syncWizardDom() {
     if (rootPointer) rootPointer.value = '';
 
     setWizardError('');
+    renderWizardExample();
 }
 
 function startWizard() {
@@ -452,12 +558,14 @@ function goToStep(step) {
         el.classList.toggle('done', index < step);
     });
     if (step === 3) renderWizardSummary();
+    renderWizardExample();
 }
 
 function syncGenerationOptions() {
     var select = document.getElementById('wizardGenerations');
     if (!select) return;
     var options = window.Pricing.GENERATION_OPTIONS[state.wizard.treeType] || [];
+    var current = state.wizard.generations;
     select.innerHTML = '';
     options.forEach(function (count) {
         var option = document.createElement('option');
@@ -465,8 +573,40 @@ function syncGenerationOptions() {
         option.textContent = count + ' generations';
         select.appendChild(option);
     });
-    state.wizard.generations = options[0];
-    select.value = String(options[0]);
+    state.wizard.generations = options.indexOf(current) !== -1 ? current : options[0];
+    select.value = String(state.wizard.generations);
+    renderWizardExample();
+}
+
+function wizardExampleImageSrc(treeType, generations, theme) {
+    var backendTheme = window.Pricing.mapThemeToBackend(theme);
+    return 'assets/examples/eichelberger-' + treeType + '-' + generations + '-' + backendTheme + '.jpg';
+}
+
+function renderWizardExample() {
+    if (!state.wizard) return;
+    var showArrow = state.wizard.step === 2;
+    var src = wizardExampleImageSrc(state.wizard.treeType, state.wizard.generations, state.wizard.theme);
+    var alt = (state.wizard.treeType === 'descendant' ? 'Descendant' : 'Ancestor') +
+        ' chart example, ' + state.wizard.generations + ' generations';
+
+    document.querySelectorAll('[data-example-preview]').forEach(function (container) {
+        var img = container.querySelector('img');
+        if (img && img.getAttribute('src') !== src) {
+            img.src = src;
+            img.alt = alt;
+        }
+        container.classList.toggle('show-arrow', showArrow);
+        container.classList.toggle('is-ancestor', state.wizard.treeType === 'ancestor');
+        container.classList.toggle('is-descendant', state.wizard.treeType === 'descendant');
+    });
+
+    var guidance = document.getElementById('startingGuidanceText');
+    if (guidance) {
+        guidance.textContent = state.wizard.treeType === 'descendant'
+            ? 'Pick the oldest person or couple you want the descendant chart to grow down from.'
+            : 'Pick the person whose parents, grandparents, and earlier ancestors should appear above them.';
+    }
 }
 
 async function populateStartingPeople() {
@@ -527,7 +667,12 @@ function renderWizardSummary() {
         ['Generations', String(wizard.generations)],
         ['Design', window.Pricing.themeDisplayName(backendTheme)],
         ['Family name', wizard.familyName || '(none)'],
-        ['Print files', price ? '$' + price + ' when you are ready' : 'Quoted after generation']
+        [
+            'Print files',
+            price
+                ? '$' + price + ' when you are ready (preview now is free; only pay if you like it)'
+                : 'Quoted after generation'
+        ]
     ];
 
     var html = '<table class="table table-sm" style="color: var(--text-gray);"><tbody>';
@@ -554,15 +699,15 @@ function setWizardError(message) {
 function validateStep(step) {
     var wizard = state.wizard;
     if (step === 1) {
+        if (!wizard.familyName.trim()) return 'Enter the family name to print on the chart.';
+        return null;
+    }
+    if (step === 2) {
         if (wizard.source === 'gedcom') {
             if (!wizard.gedcomFile) return 'Choose a GEDCOM file to upload.';
             return null;
         }
         if (!wizard.startingPersonId) return 'Choose who the chart is about.';
-        return null;
-    }
-    if (step === 2) {
-        if (!wizard.familyName.trim()) return 'Enter the family name to print on the chart.';
         return null;
     }
     return null;
@@ -576,6 +721,10 @@ async function submitWizard() {
 
     if (!wizard.contactEmail) {
         setWizardError('Enter an email address so we can send you the proof.');
+        return;
+    }
+    if (!/^[^@\s,;<>]+@[^@\s,;<>]+\.[A-Za-z]{2,}$/.test(wizard.contactEmail)) {
+        setWizardError('Enter a valid email address so we can send you the proof.');
         return;
     }
 
@@ -600,36 +749,39 @@ async function submitWizard() {
 
             var imported = await window.FsAuth.postFormData('/people/tree/import-gedcom', formData);
             contextId = imported.context_id;
+            if (button) button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting your chart request...';
+            await window.FsAuth.postJson('/build_chart', {
+                user_scope_id: state.person.scopeId,
+                context_id: contextId,
+                tree_type: wizard.treeType,
+                theme: window.Pricing.mapThemeToBackend(wizard.theme),
+                title: wizard.familyName,
+                max_generations: wizard.generations,
+                contact_email: wizard.contactEmail,
+                contact_name: wizard.contactName,
+                send_confirmation: true
+            });
         } else {
-            if (button) button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Reading your FamilySearch tree...';
-            var synced = await window.FsAuth.postJson('/people/tree/sync', {
+            if (button) button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting your chart request...';
+            await window.FsAuth.postJson('/build_chart', {
                 user_scope_id: state.person.scopeId,
                 root_person_id: wizard.startingPersonId,
+                tree_type: wizard.treeType,
+                theme: window.Pricing.mapThemeToBackend(wizard.theme),
                 title: wizard.familyName,
+                max_generations: wizard.generations,
                 ancestor_generations: wizard.treeType === 'ancestor' ? wizard.generations : 4,
                 descendant_generations: wizard.treeType === 'descendant' ? wizard.generations : 3,
-                include_spouse: true
+                contact_email: wizard.contactEmail,
+                contact_name: wizard.contactName,
+                send_confirmation: true
             });
-            contextId = synced.context_id;
         }
-
-        if (button) button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Building your chart...';
-
-        await window.FsAuth.postJson('/build_chart', {
-            user_scope_id: state.person.scopeId,
-            context_id: contextId,
-            tree_type: wizard.treeType,
-            theme: window.Pricing.mapThemeToBackend(wizard.theme),
-            title: wizard.familyName,
-            max_generations: wizard.generations,
-            contact_email: wizard.contactEmail,
-            contact_name: wizard.contactName
-        });
 
         showView('charts');
         setGlobalMessage(
-            'Building your chart now. We will email your proof to ' + wizard.contactEmail +
-                ' as soon as it is ready, usually within a couple of minutes.',
+            'Request received. We will email your confirmation now and send your proof to ' +
+                wizard.contactEmail + ' as soon as it is ready.',
             'success'
         );
         await loadOrders();
@@ -1118,8 +1270,20 @@ function wireWizardControls() {
         });
     });
 
+    document.querySelectorAll('[data-chart-filter]').forEach(function (button) {
+        button.addEventListener('click', handleChartFilterClick);
+    });
+
     var newChartBtn = document.getElementById('newChartBtn');
     if (newChartBtn) newChartBtn.addEventListener('click', startWizard);
+
+    document.querySelectorAll('.wizard-step').forEach(function (stepTab) {
+        stepTab.addEventListener('click', function () {
+            var target = Number(stepTab.getAttribute('data-step-label'));
+            if (!state.wizard || target >= state.wizard.step) return;
+            goToStep(target);
+        });
+    });
 
     document.querySelectorAll('[data-wizard-next]').forEach(function (button) {
         button.addEventListener('click', function () {
@@ -1151,6 +1315,7 @@ function wireWizardControls() {
             var gedcomPanel = document.getElementById('gedcomSourcePanel');
             if (fsPanel) fsPanel.style.display = source === 'familysearch' ? '' : 'none';
             if (gedcomPanel) gedcomPanel.style.display = source === 'gedcom' ? '' : 'none';
+            renderWizardExample();
         });
     });
 
@@ -1161,6 +1326,7 @@ function wireWizardControls() {
                 other.classList.toggle('selected', other === tile);
             });
             syncGenerationOptions();
+            renderWizardExample();
         });
     });
 
@@ -1170,6 +1336,7 @@ function wireWizardControls() {
             document.querySelectorAll('#wizardThemeSelection .theme-selector').forEach(function (other) {
                 other.classList.toggle('selected', other === tile);
             });
+            renderWizardExample();
         });
     });
 
@@ -1184,6 +1351,7 @@ function wireWizardControls() {
                 if (wrapper) wrapper.style.display = 'none';
                 state.wizard.startingPersonId = this.value;
             }
+            renderWizardExample();
         });
     }
 
@@ -1191,6 +1359,7 @@ function wireWizardControls() {
     if (manualId) {
         manualId.addEventListener('input', function () {
             state.wizard.startingPersonId = this.value.trim().toUpperCase();
+            renderWizardExample();
         });
     }
 
@@ -1198,6 +1367,7 @@ function wireWizardControls() {
     if (generationsSelect) {
         generationsSelect.addEventListener('change', function () {
             state.wizard.generations = parseInt(this.value, 10);
+            renderWizardExample();
         });
     }
 
@@ -1239,11 +1409,13 @@ async function handleUrlIntent() {
     var action = params.get('action');
 
     if (payment === 'success') {
+        state.chartFilter = 'purchased';
         setGlobalMessage('Payment received. Unlocking your print files...', 'success');
         window.history.replaceState({}, document.title, window.location.pathname);
         // The webhook may land a moment after the browser redirect.
         for (var attempt = 0; attempt < 5; attempt++) {
             await loadOrders();
+            renderCharts();
             var unlocked = state.orders.some(function (order) {
                 return order.is_unlocked;
             });
@@ -1253,6 +1425,7 @@ async function handleUrlIntent() {
             });
         }
         setGlobalMessage('Payment complete. Your print-ready file is available below.', 'success');
+        renderCharts();
         return;
     }
 
