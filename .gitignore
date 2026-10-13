@@ -224,3 +224,6 @@ yarn.lock
 .vercel
 
 .vscode/
+
+# Git worktrees created by /start-worktree
+.worktrees/
