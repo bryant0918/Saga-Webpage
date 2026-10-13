@@ -477,6 +477,7 @@ function defaultWizard() {
         startingPersonId: state.person ? state.person.id : '',
         gedcomFile: null,
         rootPointer: '',
+        gedcomPeople: [],
         treeType: 'ancestor',
         generations: 5,
         theme: 'royal-heritage',
@@ -484,6 +485,119 @@ function defaultWizard() {
         contactName: state.person ? state.person.name : '',
         contactEmail: ''
     };
+}
+
+/** Clear the GEDCOM person picker back to its empty state. */
+function resetGedcomPicker() {
+    state.wizard.gedcomPeople = [];
+    state.wizard.rootPointer = '';
+
+    var picker = document.getElementById('wizardGedcomPicker');
+    if (picker) picker.style.display = 'none';
+    var loading = document.getElementById('wizardGedcomLoading');
+    if (loading) loading.style.display = 'none';
+    var search = document.getElementById('wizardGedcomSearch');
+    if (search) search.value = '';
+    var select = document.getElementById('wizardGedcomPerson');
+    if (select) select.innerHTML = '';
+}
+
+/**
+ * Read the chosen GEDCOM and offer its people as chart roots.
+ *
+ * The wizard used to ask for a raw GEDCOM pointer like "@I1@", which no
+ * customer knows for their own export, so the field was left blank and the
+ * backend fell back to the first record in the file. One client's upload
+ * charted a man with 2 descendants when the grandmother they wanted had 205,
+ * and nothing in the result said the wrong person had been used.
+ *
+ * The file is uploaded twice -- once to list, once to import. At a couple of
+ * megabytes that is cheaper than keeping parsed state on the server between
+ * two requests.
+ */
+async function loadGedcomPeople() {
+    resetGedcomPicker();
+
+    var file = state.wizard.gedcomFile;
+    if (!file || !state.person) return;
+
+    var loading = document.getElementById('wizardGedcomLoading');
+    if (loading) loading.style.display = '';
+
+    var formData = new FormData();
+    formData.append('gedcom_file', file);
+    formData.append('user_scope_id', state.person.scopeId);
+
+    try {
+        var result = await window.FsAuth.postFormData('/people/tree/gedcom-people', formData);
+        // The customer may have swapped files while this was in flight.
+        if (state.wizard.gedcomFile !== file) return;
+
+        state.wizard.gedcomPeople = result.people || [];
+        if (!state.wizard.gedcomPeople.length) {
+            setWizardError('That file does not contain any people we can read.');
+            return;
+        }
+
+        var picker = document.getElementById('wizardGedcomPicker');
+        if (picker) picker.style.display = '';
+        renderGedcomPeople('');
+    } catch (error) {
+        if (state.wizard.gedcomFile !== file) return;
+        setWizardError((error && error.message) || 'We could not read that GEDCOM file.');
+    } finally {
+        if (loading && state.wizard.gedcomFile === file) loading.style.display = 'none';
+    }
+}
+
+/** Render the person list, filtered by a search term. */
+function renderGedcomPeople(term) {
+    var select = document.getElementById('wizardGedcomPerson');
+    if (!select) return;
+
+    var needle = (term || '').trim().toLowerCase();
+    var matches = state.wizard.gedcomPeople.filter(function (person) {
+        return !needle || (person.name || '').toLowerCase().indexOf(needle) !== -1;
+    });
+
+    // A long list is slow to build one option at a time, and nobody scrolls
+    // past the first screenful -- they search instead.
+    var capped = matches.slice(0, 200);
+    select.innerHTML = '';
+    capped.forEach(function (person) {
+        var option = document.createElement('option');
+        option.value = person.pointer;
+        var years = person.birth || person.death
+            ? ' (' + (person.birth || '?') + '\u2013' + (person.death || '') + ')'
+            : '';
+        var relatives = person.descendant_count
+            ? ' \u2014 ' + person.descendant_count + ' descendants'
+            : '';
+        option.textContent = person.name + years + relatives;
+        select.appendChild(option);
+    });
+
+    var hint = document.getElementById('wizardGedcomPickerHint');
+    if (hint) {
+        if (!matches.length) {
+            hint.textContent = 'No one in your file matches that name.';
+        } else if (matches.length > capped.length) {
+            hint.textContent = 'Showing the first ' + capped.length + ' of ' + matches.length
+                + ' matches. Keep typing to narrow it down.';
+        } else {
+            hint.textContent = matches.length + ' of ' + state.wizard.gedcomPeople.length
+                + ' people. Those with the most relatives are listed first.';
+        }
+    }
+
+    // Keep the selection honest: preselect the top match rather than leaving a
+    // stale pointer from a previous search.
+    if (capped.length) {
+        select.value = capped[0].pointer;
+        state.wizard.rootPointer = capped[0].pointer;
+    } else {
+        state.wizard.rootPointer = '';
+    }
 }
 
 /**
@@ -520,8 +634,7 @@ function syncWizardDom() {
 
     var gedcomFile = document.getElementById('wizardGedcomFile');
     if (gedcomFile) gedcomFile.value = '';
-    var rootPointer = document.getElementById('wizardRootPointer');
-    if (rootPointer) rootPointer.value = '';
+    resetGedcomPicker();
 
     setWizardError('');
     renderWizardExample();
@@ -705,6 +818,8 @@ function validateStep(step) {
     if (step === 2) {
         if (wizard.source === 'gedcom') {
             if (!wizard.gedcomFile) return 'Choose a GEDCOM file to upload.';
+            if (!wizard.gedcomPeople.length) return 'Still reading your file \u2014 give it a moment.';
+            if (!wizard.rootPointer) return 'Choose who the chart is about.';
             return null;
         }
         if (!wizard.startingPersonId) return 'Choose who the chart is about.';
@@ -1382,13 +1497,21 @@ function wireWizardControls() {
     if (gedcomFile) {
         gedcomFile.addEventListener('change', function () {
             state.wizard.gedcomFile = this.files && this.files[0] ? this.files[0] : null;
+            loadGedcomPeople();
         });
     }
 
-    var rootPointer = document.getElementById('wizardRootPointer');
-    if (rootPointer) {
-        rootPointer.addEventListener('input', function () {
-            state.wizard.rootPointer = this.value.trim();
+    var gedcomSearch = document.getElementById('wizardGedcomSearch');
+    if (gedcomSearch) {
+        gedcomSearch.addEventListener('input', function () {
+            renderGedcomPeople(this.value);
+        });
+    }
+
+    var gedcomPerson = document.getElementById('wizardGedcomPerson');
+    if (gedcomPerson) {
+        gedcomPerson.addEventListener('change', function () {
+            state.wizard.rootPointer = this.value;
         });
     }
 

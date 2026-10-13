@@ -366,9 +366,15 @@
                             <div id="gedcomSourcePanel" style="display:none;">
                                 <label for="wizardGedcomFile" class="form-label">GEDCOM file</label>
                                 <input type="file" class="form-control mb-2" id="wizardGedcomFile" accept=".ged,.gedcom">
-                                <label for="wizardRootPointer" class="form-label mt-2">Root person pointer</label>
-                                <input type="text" class="form-control" id="wizardRootPointer" placeholder="e.g. @I1@">
-                                <div class="form-text">The individual ID in your GEDCOM the chart should center on.</div>
+                                <div id="wizardGedcomLoading" class="form-text mt-2" style="display:none;">
+                                    <i class="fas fa-spinner fa-spin me-2"></i>Reading your file...
+                                </div>
+                                <div id="wizardGedcomPicker" style="display:none;">
+                                    <label for="wizardGedcomSearch" class="form-label mt-2">Who is the chart about?</label>
+                                    <input type="search" class="form-control mb-2" id="wizardGedcomSearch" placeholder="Search by name, e.g. Rosa" autocomplete="off">
+                                    <select class="form-select" id="wizardGedcomPerson" size="8"></select>
+                                    <div class="form-text" id="wizardGedcomPickerHint">People with the most relatives are listed first.</div>
+                                </div>
                                 <div class="starting-guidance">
                                     <i class="fas fa-arrow-pointer"></i>
                                     <div>The red arrow shows which GEDCOM person should be used as the root.</div>
