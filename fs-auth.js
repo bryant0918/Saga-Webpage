@@ -218,11 +218,22 @@
       body: formData
     });
     if (!response.ok) {
+      // Unwrap the backend's {"error": "..."} the way postJson does. Without
+      // this the dashboard showed customers the raw JSON envelope.
       var text = await response.text().catch(function () {
         return '';
       });
-      var failure = new Error(text || 'Upload failed');
+      var parsed = null;
+      try {
+        parsed = JSON.parse(text);
+      } catch (error) {
+        parsed = null;
+      }
+      var message =
+        (parsed && parsed.error) || text || 'Upload failed (' + response.status + ')';
+      var failure = new Error(message);
       failure.status = response.status;
+      failure.body = parsed;
       throw failure;
     }
     return response.json();

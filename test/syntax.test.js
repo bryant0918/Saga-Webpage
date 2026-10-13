@@ -124,3 +124,57 @@ test('the retired ordering pages are gone', () => {
     }
   );
 });
+
+test('every wizard element dashboard.js reads exists in dashboard.html', () => {
+  // The wizard's markup is all static, so a rename on either side is a silent
+  // break: getElementById returns null, the guards swallow it, and the step
+  // just does nothing. The GEDCOM person picker is the reason this matters --
+  // if its select goes missing the wizard accepts an upload with no chosen
+  // root, which is the bug that shipped a customer the wrong family's chart.
+  //
+  // Scoped to `wizard*` deliberately. Other panels (the add-person modal in
+  // tree-renderer.js) inject their markup at runtime, so their IDs are
+  // correctly absent from the page.
+  const js = fs.readFileSync(path.join(ROOT, 'dashboard.js'), 'utf8');
+  const html = fs.readFileSync(path.join(ROOT, 'dashboard.html'), 'utf8');
+
+  const referenced = new Set();
+  for (const match of js.matchAll(/getElementById\(\s*['"]([A-Za-z0-9_-]+)['"]\s*\)/g)) {
+    if (/^wizard/i.test(match[1])) referenced.add(match[1]);
+  }
+
+  const declared = new Set();
+  for (const match of html.matchAll(/\bid="([A-Za-z0-9_-]+)"/g)) declared.add(match[1]);
+
+  assert.ok(referenced.size > 0, 'expected dashboard.js to read wizard elements');
+
+  const missing = [...referenced].filter((id) => !declared.has(id)).sort();
+  assert.deepEqual(missing, [], `missing from dashboard.html: ${missing.join(', ')}`);
+});
+
+test('the GEDCOM wizard asks for a person, not a raw pointer', () => {
+  // The field used to be a text input for a GEDCOM pointer like "@I1@", which
+  // no customer knows for their own export. Left blank, the backend fell back
+  // to the first record in the file: one upload charted a man with 2
+  // descendants when the grandmother wanted had 205, and nothing said so.
+  const html = fs.readFileSync(path.join(ROOT, 'dashboard.html'), 'utf8');
+  const js = fs.readFileSync(path.join(ROOT, 'dashboard.js'), 'utf8');
+
+  assert.ok(
+    html.includes('id="wizardGedcomPerson"'),
+    'the GEDCOM panel should offer a person picker'
+  );
+  assert.ok(
+    html.includes('id="wizardGedcomSearch"'),
+    'the picker needs a search box -- real files run to thousands of people'
+  );
+  assert.equal(
+    html.includes('id="wizardRootPointer"'),
+    false,
+    'the raw pointer input should be gone'
+  );
+  assert.ok(
+    js.includes('/people/tree/gedcom-people'),
+    'the picker should be populated from the backend'
+  );
+});
